@@ -11,4 +11,71 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  
+}
+
+model User {
+  id           Int        @id @default(autoincrement())
+  name         String
+  passwordHash String
+  position     String
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  pagePermissions   UserPagePermission[]
+  actionPermissions UserActionPermission[]
+
+  @@map("users")
+}
+
+model UserPagePermission {
+  id      Int     @id @default(autoincrement())
+  userId  Int
+  page    String
+  enabled Boolean @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, page])
+  @@map("user_page_permissions")
+}
+
+model UserActionPermission {
+  id      Int     @id @default(autoincrement())
+  userId  Int
+  page    String
+  action  String
+  enabled Boolean @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, page, action])
+  @@map("user_action_permissions")
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+
+
+
+model RawMaterial {
+  id               Int      @id @default(autoincrement())
+  name             String   @unique
+  unit             String
+  quantity         Decimal  @db.Decimal(12, 2)
+  pricePerUnit     Decimal  @db.Decimal(12, 2)
+  supplier         String
+  addedAt          DateTime @default(now())
+  expiryDate       DateTime?
+  minStockAlert    Decimal  @db.Decimal(12, 2)
+  expiryAlertDays  Int?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("raw_materials")
 }
