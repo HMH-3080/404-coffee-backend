@@ -7,7 +7,7 @@
  * RawMaterialBatch = كل دفعة من المادة بكمية وسعر وتاريخ صلاحية مختلف.
  */
 
-const prisma = require("../lib/prisma");
+const prisma = require("../../lib/prisma");
 
 // ============================================================
 // Get all raw materials

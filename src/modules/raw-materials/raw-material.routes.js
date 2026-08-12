@@ -1,10 +1,10 @@
 const express = require("express");
 
-const authMiddleware = require("../middlewares/auth.middleware");
+const authMiddleware = require("../../middlewares/auth.middleware");
 
 const {
   requirePagePermission,
-} = require("../middlewares/permission.middleware");
+} = require("../../middlewares/permission.middleware");
 
 const {
     getRawMaterials,
@@ -13,7 +13,7 @@ const {
     deleteRawMaterial,
     addBatch,
     getMaterialBatches,
-} = require("../controllers/raw-material.controller");
+} = require("./raw-material.controller");
 const router = express.Router();
 
 // Get all raw materials

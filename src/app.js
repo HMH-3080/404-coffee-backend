@@ -6,11 +6,11 @@ const userRoutes = require("./routes/user.routes");
 const authRoutes = require("./routes/auth.routes");
 
 
-const rawMaterialRoutes = require("./routes/raw-material.routes");
+const rawMaterialRoutes = require("./modules/raw-materials/raw-material.routes");
 
 const permissionRoutes = require("./routes/permission.routes");
 
-const supplierRoutes = require("./routes/supplier.routes");
+const supplierRoutes = require("./modules/suppliers/supplier.routes");
 
 
 const productRoutes = require("./modules/products/product.routes");

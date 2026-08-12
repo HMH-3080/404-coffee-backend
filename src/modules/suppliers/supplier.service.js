@@ -1,4 +1,4 @@
-const prisma = require("../lib/prisma");
+const prisma = require("../../lib/prisma");
 
 // Get all suppliers
 const getSuppliers = async () => {

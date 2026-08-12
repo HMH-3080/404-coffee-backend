@@ -11,7 +11,7 @@
  * ويرجع 201 لو نجح.
  */
 
-const rawMaterialService = require("../services/raw-material.service");
+const rawMaterialService = require("./raw-material.service");
 
 // Get all raw materials
 const getRawMaterials = async (req, res, next) => {
