@@ -1,32 +1,45 @@
 /**
- * services/raw-material.service.js  — منطق المواد الخام (Service Layer)
- * ================================================================================
- * الهدف: يحتوي على منطق التعامل مع جدول rawMaterial (جلب الكل + إنشاء واحدة جديدة)،
- * بعيدًا عن الـ Controller (نفس نمط الـ Service الموجود في المستخدمين تقريبًا).
- * 
- * getRawMaterials: يجيب كل المواد الخام مرتبة من الأحدث للأقدم.
- * 
- * createRawMaterial: 
- * 1) يتحقق إن كل الحقول المطلوبة موجودة (name, unit, quantity, pricePerUnit, 
- *    supplier, minStockAlert) - لو حاجة ناقصة يرمي 400
- * 2) يتحقق إن مفيش مادة خام بنفس الاسم موجودة قبل كده - لو موجودة يرمي 409
- * 3) ينشئ المادة، وبيحول التواريخ (addedAt, expiryDate) لصيغة Date، 
- *    ولو مبعتتش تاريخ إضافة يستخدم الوقت الحالي تلقائي
+ * services/raw-material.service.js
+ * ============================================================
+ * Raw Material Service
+ *
+ * RawMaterial = تعريف المادة الخام نفسها.
+ * RawMaterialBatch = كل دفعة من المادة بكمية وسعر وتاريخ صلاحية مختلف.
  */
+
 const prisma = require("../lib/prisma");
 
+// ============================================================
 // Get all raw materials
+// ============================================================
+
 const getRawMaterials = async () => {
     const rawMaterials = await prisma.rawMaterial.findMany({
         orderBy: {
             createdAt: "desc",
+        },
+
+        include: {
+            batches: {
+                orderBy: [
+                    {
+                        expiryDate: "asc",
+                    },
+                    {
+                        createdAt: "asc",
+                    },
+                ],
+            },
         },
     });
 
     return rawMaterials;
 };
 
+// ============================================================
 // Create raw material
+// ============================================================
+
 const createRawMaterial = async ({
     name,
     unit,
@@ -38,7 +51,6 @@ const createRawMaterial = async ({
     minStockAlert,
     expiryAlertDays,
 }) => {
-
     // Check required fields
     if (
         !name ||
@@ -48,7 +60,10 @@ const createRawMaterial = async ({
         !supplier ||
         minStockAlert === undefined
     ) {
-        const error = new Error("Required raw material data is missing");
+        const error = new Error(
+            "Required raw material data is missing"
+        );
+
         error.statusCode = 400;
         throw error;
     }
@@ -60,37 +75,105 @@ const createRawMaterial = async ({
         },
     });
 
+    let rawMaterial;
+
+    // ========================================================
+    // If material already exists:
+    // Create a new batch
+    // ========================================================
+
     if (existingMaterial) {
-        const error = new Error("Raw material already exists");
-        error.statusCode = 409;
-        throw error;
+        rawMaterial = await prisma.rawMaterial.update({
+            where: {
+                id: existingMaterial.id,
+            },
+
+            data: {
+                batches: {
+                    create: {
+                        quantity,
+                        pricePerUnit,
+                        addedAt: addedAt
+                            ? new Date(addedAt)
+                            : new Date(),
+                        expiryDate: expiryDate
+                            ? new Date(expiryDate)
+                            : null,
+                    },
+                },
+            },
+
+            include: {
+                batches: {
+                    orderBy: [
+                        {
+                            expiryDate: "asc",
+                        },
+                        {
+                            createdAt: "asc",
+                        },
+                    ],
+                },
+            },
+        });
+
+        return rawMaterial;
     }
 
-    const rawMaterial = await prisma.rawMaterial.create({
+    // ========================================================
+    // If material doesn't exist:
+    // Create material + first batch
+    // ========================================================
+
+    rawMaterial = await prisma.rawMaterial.create({
         data: {
             name,
             unit,
-            quantity,
-            pricePerUnit,
             supplier,
-            addedAt: addedAt ? new Date(addedAt) : new Date(),
-            expiryDate: expiryDate ? new Date(expiryDate) : null,
             minStockAlert,
+
             expiryAlertDays:
                 expiryAlertDays !== undefined
                     ? expiryAlertDays
                     : null,
+
+            addedAt: addedAt
+                ? new Date(addedAt)
+                : new Date(),
+
+            batches: {
+                create: {
+                    quantity,
+                    pricePerUnit,
+                    addedAt: addedAt
+                        ? new Date(addedAt)
+                        : new Date(),
+                    expiryDate: expiryDate
+                        ? new Date(expiryDate)
+                        : null,
+                },
+            },
+        },
+
+        include: {
+            batches: true,
         },
     });
 
     return rawMaterial;
 };
 
+// ============================================================
 // Update raw material
+// ============================================================
+
 const updateRawMaterial = async (id, data) => {
+    const rawMaterialId = Number(id);
+
+    // Check material exists
     const existingMaterial = await prisma.rawMaterial.findUnique({
         where: {
-            id: Number(id),
+            id: rawMaterialId,
         },
     });
 
@@ -103,45 +186,205 @@ const updateRawMaterial = async (id, data) => {
     const {
         name,
         unit,
-        quantity,
-        pricePerUnit,
         supplier,
         addedAt,
-        expiryDate,
         minStockAlert,
         expiryAlertDays,
+
+        // Batch fields
+        quantity,
+        pricePerUnit,
+        expiryDate,
     } = data;
+
+    // Update main RawMaterial data
+    const updateData = {
+        ...(name !== undefined && { name }),
+        ...(unit !== undefined && { unit }),
+        ...(supplier !== undefined && { supplier }),
+
+        ...(addedAt !== undefined && {
+            addedAt: new Date(addedAt),
+        }),
+
+        ...(minStockAlert !== undefined && {
+            minStockAlert,
+        }),
+
+        ...(expiryAlertDays !== undefined && {
+            expiryAlertDays,
+        }),
+    };
+
+    // If batch data was sent, create a new batch
+    const hasBatchData =
+        quantity !== undefined ||
+        pricePerUnit !== undefined ||
+        expiryDate !== undefined;
+
+    if (hasBatchData) {
+        // All batch fields are required when creating
+        // a new batch through update
+        if (
+            quantity === undefined ||
+            pricePerUnit === undefined
+        ) {
+            const error = new Error(
+                "quantity and pricePerUnit are required when creating a batch"
+            );
+
+            error.statusCode = 400;
+            throw error;
+        }
+
+        updateData.batches = {
+            create: {
+                quantity,
+                pricePerUnit,
+                expiryDate: expiryDate
+                    ? new Date(expiryDate)
+                    : null,
+            },
+        };
+    }
 
     const updatedMaterial = await prisma.rawMaterial.update({
         where: {
-            id: Number(id),
+            id: rawMaterialId,
         },
-        data: {
-            ...(name !== undefined && { name }),
-            ...(unit !== undefined && { unit }),
-            ...(quantity !== undefined && { quantity }),
-            ...(pricePerUnit !== undefined && { pricePerUnit }),
-            ...(supplier !== undefined && { supplier }),
-            ...(addedAt !== undefined && {
-                addedAt: new Date(addedAt),
-            }),
-            ...(expiryDate !== undefined && {
-                expiryDate: expiryDate ? new Date(expiryDate) : null,
-            }),
-            ...(minStockAlert !== undefined && {
-                minStockAlert,
-            }),
-            ...(expiryAlertDays !== undefined && {
-                expiryAlertDays,
-            }),
+
+        data: updateData,
+
+        include: {
+            batches: {
+                orderBy: [
+                    {
+                        expiryDate: "asc",
+                    },
+                    {
+                        createdAt: "asc",
+                    },
+                ],
+            },
         },
     });
 
     return updatedMaterial;
 };
 
+// ============================================================
+// Delete raw material
+// ============================================================
+
+const deleteRawMaterial = async (id) => {
+    const rawMaterialId = Number(id);
+
+    const existingMaterial = await prisma.rawMaterial.findUnique({
+        where: {
+            id: rawMaterialId,
+        },
+
+        include: {
+            batches: true,
+        },
+    });
+
+    if (!existingMaterial) {
+        const error = new Error("Raw material not found");
+        error.statusCode = 404;
+        throw error;
+    }
+
+    await prisma.rawMaterial.delete({
+        where: {
+            id: rawMaterialId,
+        },
+    });
+
+    return existingMaterial;
+};
+
+
+// Add new batch
+const addBatch = async (rawMaterialId, batchData) => {
+    const material = await prisma.rawMaterial.findUnique({
+        where: {
+            id: Number(rawMaterialId),
+        },
+    });
+
+    if (!material) {
+        const error = new Error("Raw material not found");
+        error.statusCode = 404;
+        throw error;
+    }
+
+    const { quantity, pricePerUnit, expiryDate, addedAt } =
+        batchData;
+
+    if (
+        quantity === undefined ||
+        pricePerUnit === undefined
+    ) {
+        const error = new Error(
+            "quantity and pricePerUnit are required"
+        );
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const batch = await prisma.rawMaterialBatch.create({
+        data: {
+            rawMaterialId: Number(rawMaterialId),
+            quantity,
+            pricePerUnit,
+            expiryDate: expiryDate
+                ? new Date(expiryDate)
+                : null,
+            addedAt: addedAt ? new Date(addedAt) : new Date(),
+        },
+    });
+
+    return batch;
+};
+
+
+// Get material batches
+const getMaterialBatches = async (rawMaterialId) => {
+    const material = await prisma.rawMaterial.findUnique({
+        where: {
+            id: Number(rawMaterialId),
+        },
+    });
+
+    if (!material) {
+        const error = new Error("Raw material not found");
+        error.statusCode = 404;
+        throw error;
+    }
+
+    const batches = await prisma.rawMaterialBatch.findMany({
+        where: {
+            rawMaterialId: Number(rawMaterialId),
+        },
+        orderBy: [
+            {
+                expiryDate: "asc",
+            },
+            {
+                createdAt: "asc",
+            },
+        ],
+    });
+
+    return batches;
+};
+
 module.exports = {
     getRawMaterials,
     createRawMaterial,
     updateRawMaterial,
+    deleteRawMaterial,
+    addBatch,
+    getMaterialBatches,
 };

@@ -62,9 +62,67 @@ const updateRawMaterial = async (req, res, next) => {
     }
 };
 
+// Delete raw material
+const deleteRawMaterial = async (req, res, next) => {
+    try {
+        const rawMaterial = await rawMaterialService.deleteRawMaterial(
+            req.params.id
+        );
 
+        res.status(200).json({
+            success: true,
+            message: "Raw material deleted successfully",
+            data: rawMaterial,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+const addBatch = async (req, res, next) => {
+    try {
+        const batch =
+            await rawMaterialService.addBatch(
+                req.params.id,
+                req.body
+            );
+
+        res.status(201).json({
+            success: true,
+            message: "Batch added successfully",
+            data: batch,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const getMaterialBatches = async (
+    req,
+    res,
+    next
+) => {
+    try {
+        const batches =
+            await rawMaterialService.getMaterialBatches(
+                req.params.id
+            );
+
+        res.status(200).json({
+            success: true,
+            data: batches,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
 module.exports = {
     getRawMaterials,
     createRawMaterial,
     updateRawMaterial,
+    deleteRawMaterial,
+    addBatch,
+    getMaterialBatches,
+
 };

@@ -8,6 +8,15 @@ const authRoutes = require("./routes/auth.routes");
 
 const rawMaterialRoutes = require("./routes/raw-material.routes");
 
+const permissionRoutes = require("./routes/permission.routes");
+
+const supplierRoutes = require("./routes/supplier.routes");
+
+
+const productRoutes = require("./modules/products/product.routes");
+
+
+const saleRoutes = require("./modules/sales/sale.routes");
 
 
 
@@ -30,17 +39,25 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+
 // Routes
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
 
-app.use("/api/raw-materials", rawMaterialRoutes)
+app.use("/api/sales", saleRoutes);
 
-// app.use("/api/test", testRoutes);
+app.use("/api/raw-materials", rawMaterialRoutes);
+app.use("/api/suppliers", supplierRoutes);
+app.use("/api/products", productRoutes);
+
+
+
+// Permission routes
+app.use("/api/permissions", permissionRoutes);
+
 
 
 // Error handler must be after routes
 app.use(errorHandler);
-
 
 module.exports = app;

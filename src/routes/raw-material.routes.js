@@ -7,11 +7,13 @@ const {
 } = require("../middlewares/permission.middleware");
 
 const {
-  getRawMaterials,
-  createRawMaterial,
-  updateRawMaterial,
+    getRawMaterials,
+    createRawMaterial,
+    updateRawMaterial,
+    deleteRawMaterial,
+    addBatch,
+    getMaterialBatches,
 } = require("../controllers/raw-material.controller");
-
 const router = express.Router();
 
 // Get all raw materials
@@ -30,6 +32,20 @@ router.post(
   createRawMaterial,
 );
 
+router.get(
+    "/:id/batches",
+    authMiddleware,
+    requirePagePermission("inventory"),
+    getMaterialBatches
+);
+
+router.post(
+    "/:id/batches",
+    authMiddleware,
+    requirePagePermission("inventory"),
+    addBatch
+);
+
 // Update raw material
 router.put(
   "/:id",
@@ -37,5 +53,29 @@ router.put(
   requirePagePermission("inventory"),
   updateRawMaterial,
 );
+
+
+// Delete raw material
+router.delete(
+  "/:id",
+  authMiddleware,
+  requirePagePermission("inventory"),
+  deleteRawMaterial,
+);
+
+// router.get(
+//     "/:id/batches",
+//     authMiddleware,
+//     requirePagePermission("inventory"),
+//     getMaterialBatches
+// );
+
+// router.post(
+//     "/:id/batches",
+//     authMiddleware,
+//     requirePagePermission("inventory"),
+//     addBatch
+// );
+
 
 module.exports = router;
