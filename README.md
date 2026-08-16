@@ -38,6 +38,7 @@ npm run dev                 # http://localhost:5000
 
 - [دليل API الكامل](docs/API.md)
 - [اختبار كل الـ endpoints بـ curl بالترتيب](docs/CURL_GUIDE.md)
+- [ملخص التحقق الشامل بالـ endpoints (English)](docs/VERIFICATION_REPORT.md)
 - [المراجعة التقنية](docs/SENIOR_REVIEW.md) (من الجولة السابقة — أرشيفي)
 
 ## بنية المشروع
