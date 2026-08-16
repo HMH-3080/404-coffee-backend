@@ -1,7 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// This is your Prisma schema file
+// https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
@@ -12,16 +10,27 @@ datasource db {
 }
 
 model User {
-  id           Int        @id @default(autoincrement())
-  name         String
-  passwordHash String
-  position     String
-  status       UserStatus @default(ACTIVE)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id            Int        @id @default(autoincrement())
+  name          String
+  passwordHash  String
+  position      String
+  status        UserStatus @default(ACTIVE)
+  fingerprintId String?    @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   pagePermissions   UserPagePermission[]
   actionPermissions UserActionPermission[]
+
+  openedShifts               CashDrawerShift[]       @relation("OpenedShifts")
+  closedShifts               CashDrawerShift[]       @relation("ClosedShifts")
+  recordedDrawerTransactions CashDrawerTransaction[] @relation("RecordedDrawerTransactions")
+
+  auditLogs       AuditLog[]
+  updatedSettings Setting[]  @relation("UpdatedSettings")
+
+  attendance Attendance[]
 
   @@map("users")
 }
@@ -74,6 +83,7 @@ model RawMaterial {
   productSizeIngredients ProductSizeIngredient[]
 
   purchaseItems PurchaseItem[]
+  returnItems   ReturnItem[]
 
   @@map("raw_materials")
 }
@@ -101,15 +111,16 @@ model Product {
   name        String  @unique
   description String?
   image       String?
+  barcode     String? @unique
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  types  ProductType[]
-  sizes  ProductSize[]
-  addons ProductAddon[]
-
-  saleItems SaleItem[]
+  types      ProductType[]
+  sizes      ProductSize[]
+  addons     ProductAddon[]
+  saleItems  SaleItem[]
+  orderItems OrderItem[]
 
   @@map("products")
 }
@@ -161,6 +172,7 @@ model ProductSize {
 
   ingredients ProductSizeIngredient[]
   saleItems   SaleItem[]
+  orderItems  OrderItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -191,12 +203,11 @@ model ProductSizeIngredient {
 }
 
 model ProductAddon {
-  id        Int    @id @default(autoincrement())
+  id        Int     @id @default(autoincrement())
   productId Int
   name      String
-
-  price Float
-  notes String?
+  price     Float
+  notes     String?
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
@@ -206,6 +217,29 @@ model ProductAddon {
   @@unique([productId, name])
   @@index([productId])
   @@map("product_addons")
+}
+
+model Customer {
+  id            Int     @id @default(autoincrement())
+  name          String
+  phone         String  @unique
+  whatsapp      String?
+  email         String?
+  image         String?
+  city          String?
+  address       String?
+  loyaltyPoints Int     @default(0)
+  loyaltyLevel  String  @default("REGULAR")
+  notes         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sales  Sale[]
+  orders Order[]
+
+  @@index([name])
+  @@map("customers")
 }
 
 model Supplier {
@@ -229,6 +263,7 @@ model Supplier {
   updatedAt DateTime @updatedAt
 
   purchases Purchase[]
+  returns   Return[]
 
   @@map("suppliers")
 }
@@ -286,14 +321,39 @@ model PurchaseItem {
   @@map("purchase_items")
 }
 
+enum PaymentMethod {
+  CASH
+  CARD
+  WALLET
+}
+
+enum SaleStatus {
+  COMPLETED
+  CANCELLED
+}
+
 model Sale {
-  id        Int      @id @default(autoincrement())
-  total     Decimal  @db.Decimal(12, 2)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id Int @id @default(autoincrement())
+
+  customerId Int?
+
+  subtotal Decimal @db.Decimal(12, 2)
+  discount Decimal @default(0) @db.Decimal(12, 2)
+  total    Decimal @db.Decimal(12, 2)
+
+  paymentMethod PaymentMethod @default(CASH)
+  status        SaleStatus    @default(COMPLETED)
+
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
   items SaleItem[]
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([createdAt])
+  @@index([status])
   @@map("sales")
 }
 
@@ -317,4 +377,315 @@ model SaleItem {
   @@index([productId])
   @@index([productSizeId])
   @@map("sale_items")
+}
+
+// ============================================================
+// Orders
+// ============================================================
+
+enum OrderType {
+  DINE_IN
+  TAKEAWAY
+  ONLINE
+}
+
+enum OrderStatus {
+  PENDING
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+model Order {
+  id Int @id @default(autoincrement())
+
+  customerId Int?
+  delegateId Int?
+
+  orderType OrderType   @default(DINE_IN)
+  status    OrderStatus @default(PENDING)
+
+  phone String?
+
+  subtotal Decimal @db.Decimal(12, 2)
+  discount Decimal @default(0) @db.Decimal(12, 2)
+  total    Decimal @db.Decimal(12, 2)
+
+  paymentMethod PaymentMethod @default(CASH)
+
+  notes String?
+
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  delegate Delegate? @relation(fields: [delegateId], references: [id], onDelete: SetNull)
+
+  items OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([delegateId])
+  @@index([orderType])
+  @@index([status])
+  @@index([paymentMethod])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id Int @id @default(autoincrement())
+
+  orderId       Int
+  productId     Int
+  productSizeId Int
+
+  quantity   Decimal @db.Decimal(12, 2)
+  unitPrice  Decimal @db.Decimal(12, 2)
+  totalPrice Decimal @db.Decimal(12, 2)
+
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product     @relation(fields: [productId], references: [id])
+  productSize ProductSize @relation(fields: [productSizeId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([productSizeId])
+  @@map("order_items")
+}
+
+// ============================================================
+// Returns
+// ============================================================
+
+enum ReturnStatus {
+  DRAFT
+  APPROVED
+  CANCELLED
+}
+
+model Return {
+  id         Int    @id @default(autoincrement())
+  returnNo   String @unique
+  supplierId Int
+
+  returnDate DateTime @default(now())
+
+  generalReason String?
+  notes         String?
+
+  totalQuantity Decimal @default(0) @db.Decimal(12, 2)
+  totalValue    Decimal @default(0) @db.Decimal(12, 2)
+
+  status ReturnStatus @default(DRAFT)
+
+  supplier Supplier @relation(fields: [supplierId], references: [id])
+
+  items ReturnItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([supplierId])
+  @@index([returnDate])
+  @@index([status])
+  @@map("returns")
+}
+
+model ReturnItem {
+  id Int @id @default(autoincrement())
+
+  returnId      Int
+  rawMaterialId Int
+
+  quantity     Decimal @db.Decimal(12, 2)
+  unit         String
+  pricePerUnit Decimal @db.Decimal(12, 2)
+  totalPrice   Decimal @db.Decimal(12, 2)
+
+  reason String?
+
+  return      Return      @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  rawMaterial RawMaterial @relation(fields: [rawMaterialId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([returnId])
+  @@index([rawMaterialId])
+  @@map("return_items")
+}
+
+// ============================================================
+// Delegates
+// ============================================================
+
+enum DelegateStatus {
+  AVAILABLE
+  UNAVAILABLE
+}
+
+model Delegate {
+  id       Int            @id @default(autoincrement())
+  name     String
+  whatsapp String
+  phone    String
+  image    String?
+  status   DelegateStatus @default(AVAILABLE)
+
+  orders Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([status])
+  @@map("delegates")
+}
+
+// ============================================================
+// Cash Drawer Shifts
+// ============================================================
+
+enum ShiftStatus {
+  OPEN
+  CLOSED
+}
+
+enum DrawerTransactionType {
+  SALES
+  COLLECTION
+  EXPENSE
+  SALARY
+  MAINTENANCE
+  PURCHASE
+  INCENTIVE
+}
+
+model CashDrawerShift {
+  id             Int         @id @default(autoincrement())
+  openedByUserId Int
+  openedAt       DateTime    @default(now())
+  openingBalance Decimal     @db.Decimal(12, 2)
+  closedByUserId Int?
+  closedAt       DateTime?
+  closingBalance Decimal?    @db.Decimal(12, 2)
+  actualBalance  Decimal?    @db.Decimal(12, 2)
+  difference     Decimal?    @db.Decimal(12, 2)
+  notes          String?
+  status         ShiftStatus @default(OPEN)
+
+  openedByUser User  @relation("OpenedShifts", fields: [openedByUserId], references: [id], onDelete: Restrict)
+  closedByUser User? @relation("ClosedShifts", fields: [closedByUserId], references: [id], onDelete: SetNull)
+
+  transactions CashDrawerTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([openedByUserId])
+  @@index([status])
+  @@index([openedAt])
+  @@map("cash_drawer_shifts")
+}
+
+model CashDrawerTransaction {
+  id               Int                   @id @default(autoincrement())
+  shiftId          Int
+  type             DrawerTransactionType
+  amount           Decimal               @db.Decimal(12, 2)
+  description      String?
+  recordedByUserId Int
+
+  shift          CashDrawerShift @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  recordedByUser User            @relation("RecordedDrawerTransactions", fields: [recordedByUserId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([shiftId])
+  @@index([type])
+  @@map("cash_drawer_transactions")
+}
+
+// ============================================================
+// Attendance / Employee Performance
+// ============================================================
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LEAVE
+  HOLIDAY
+}
+
+enum AttendanceMethod {
+  MANUAL
+  FINGERPRINT
+}
+
+model Attendance {
+  id       Int              @id @default(autoincrement())
+  userId   Int
+  date     DateTime         @db.Date
+  checkIn  DateTime?
+  checkOut DateTime?
+  status   AttendanceStatus @default(PRESENT)
+  method   AttendanceMethod @default(MANUAL)
+  notes    String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+  @@index([status])
+  @@map("attendance")
+}
+
+// ============================================================
+// Audit Log
+// ============================================================
+
+model AuditLog {
+  id          Int     @id @default(autoincrement())
+  userId      Int?
+  page        String
+  action      String
+  description String?
+  ipAddress   String?
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([page])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================================
+// Settings
+// ============================================================
+
+model Setting {
+  id              Int     @id @default(autoincrement())
+  key             String  @unique
+  value           String?
+  description     String?
+  updatedByUserId Int?
+
+  updatedByUser User? @relation("UpdatedSettings", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
 }

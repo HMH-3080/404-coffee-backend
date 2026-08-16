@@ -63,19 +63,5 @@ router.delete(
   deleteRawMaterial,
 );
 
-// router.get(
-//     "/:id/batches",
-//     authMiddleware,
-//     requirePagePermission("inventory"),
-//     getMaterialBatches
-// );
-
-// router.post(
-//     "/:id/batches",
-//     authMiddleware,
-//     requirePagePermission("inventory"),
-//     addBatch
-// );
-
 
 module.exports = router;

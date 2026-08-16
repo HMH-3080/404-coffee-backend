@@ -1,0 +1,406 @@
+const prisma = require("../../lib/prisma");
+
+const { createAuditLog } = require("../../utils/audit");
+
+const IN_TYPES = ["SALES", "COLLECTION"];
+const OUT_TYPES = ["EXPENSE", "SALARY", "MAINTENANCE", "PURCHASE", "INCENTIVE"];
+
+const shiftInclude = {
+    openedByUser: {
+        select: {
+            id: true,
+            name: true,
+        },
+    },
+    closedByUser: {
+        select: {
+            id: true,
+            name: true,
+        },
+    },
+    transactions: {
+        orderBy: {
+            createdAt: "asc",
+        },
+        include: {
+            recordedByUser: {
+                select: {
+                    id: true,
+                    name: true,
+                },
+            },
+        },
+    },
+};
+
+// ============================================================
+// Get all shifts
+// ============================================================
+
+const getShifts = async () => {
+    return prisma.cashDrawerShift.findMany({
+        orderBy: {
+            createdAt: "desc",
+        },
+        include: shiftInclude,
+    });
+};
+
+// ============================================================
+// Get shift by ID
+// ============================================================
+
+const getShiftById = async (id) => {
+    const shiftId = Number(id);
+
+    if (!Number.isInteger(shiftId) || shiftId <= 0) {
+        const error = new Error("Invalid shift ID");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const shift = await prisma.cashDrawerShift.findUnique({
+        where: {
+            id: shiftId,
+        },
+        include: shiftInclude,
+    });
+
+    if (!shift) {
+        const error = new Error("Cash drawer shift not found");
+        error.statusCode = 404;
+        throw error;
+    }
+
+    return shift;
+};
+
+// ============================================================
+// Get currently open shift
+// ============================================================
+
+const getCurrentShift = async () => {
+    return prisma.cashDrawerShift.findFirst({
+        where: {
+            status: "OPEN",
+        },
+        orderBy: {
+            openedAt: "desc",
+        },
+        include: shiftInclude,
+    });
+};
+
+// ============================================================
+// Open shift
+// ============================================================
+
+const openShift = async (data, userId, ipAddress) => {
+    const openingBalance = Number(data.openingBalance);
+
+    if (Number.isNaN(openingBalance) || openingBalance < 0) {
+        const error = new Error("Valid opening balance is required");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const existingOpenShift = await prisma.cashDrawerShift.findFirst({
+        where: {
+            status: "OPEN",
+        },
+    });
+
+    if (existingOpenShift) {
+        const error = new Error("A shift is already open");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const shift = await prisma.cashDrawerShift.create({
+        data: {
+            openedByUserId: userId,
+            openingBalance,
+            notes: data.notes || null,
+        },
+        include: shiftInclude,
+    });
+
+    await createAuditLog({
+        userId,
+        page: "cash_drawer_shifts",
+        action: "open_shift",
+        description: `Opened shift #${shift.id} with opening balance ${openingBalance}`,
+        ipAddress,
+    });
+
+    return shift;
+};
+
+// ============================================================
+// Close shift
+// ============================================================
+
+const closeShift = async (id, data, userId, ipAddress) => {
+    const shiftId = Number(id);
+
+    if (!Number.isInteger(shiftId) || shiftId <= 0) {
+        const error = new Error("Invalid shift ID");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const actualBalance = Number(data.actualBalance);
+
+    if (Number.isNaN(actualBalance) || actualBalance < 0) {
+        const error = new Error("Valid actual balance is required");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const shift = await prisma.cashDrawerShift.findUnique({
+        where: {
+            id: shiftId,
+        },
+        include: {
+            transactions: true,
+        },
+    });
+
+    if (!shift) {
+        const error = new Error("Cash drawer shift not found");
+        error.statusCode = 404;
+        throw error;
+    }
+
+    if (shift.status !== "OPEN") {
+        const error = new Error("Only open shifts can be closed");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    let totalIn = 0;
+    let totalOut = 0;
+
+    for (const transaction of shift.transactions) {
+        if (IN_TYPES.includes(transaction.type)) {
+            totalIn += Number(transaction.amount);
+        } else if (OUT_TYPES.includes(transaction.type)) {
+            totalOut += Number(transaction.amount);
+        }
+    }
+
+    const closingBalance =
+        Math.round(
+            (Number(shift.openingBalance) + totalIn - totalOut) * 100
+        ) / 100;
+
+    const difference =
+        Math.round((actualBalance - closingBalance) * 100) / 100;
+
+    const updatedShift = await prisma.cashDrawerShift.update({
+        where: {
+            id: shiftId,
+        },
+        data: {
+            status: "CLOSED",
+            closedAt: new Date(),
+            closedByUserId: userId,
+            closingBalance,
+            actualBalance,
+            difference,
+            ...(data.notes !== undefined && { notes: data.notes || null }),
+        },
+        include: shiftInclude,
+    });
+
+    await createAuditLog({
+        userId,
+        page: "cash_drawer_shifts",
+        action: "close_shift",
+        description: `Closed shift #${shiftId} with closing balance ${closingBalance} and difference ${difference}`,
+        ipAddress,
+    });
+
+    return updatedShift;
+};
+
+// ============================================================
+// Record cash in transaction
+// ============================================================
+
+const recordCashIn = async (id, data, userId, ipAddress) => {
+    const shiftId = Number(id);
+
+    if (!Number.isInteger(shiftId) || shiftId <= 0) {
+        const error = new Error("Invalid shift ID");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    if (!IN_TYPES.includes(data.type)) {
+        const error = new Error("Invalid cash-in type");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const amount = Number(data.amount);
+
+    if (Number.isNaN(amount) || amount <= 0) {
+        const error = new Error("Valid amount is required");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const shift = await prisma.cashDrawerShift.findUnique({
+        where: {
+            id: shiftId,
+        },
+    });
+
+    if (!shift) {
+        const error = new Error("Cash drawer shift not found");
+        error.statusCode = 404;
+        throw error;
+    }
+
+    if (shift.status !== "OPEN") {
+        const error = new Error("Only open shifts accept transactions");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const transaction = await prisma.cashDrawerTransaction.create({
+        data: {
+            shiftId,
+            type: data.type,
+            amount,
+            description: data.description || null,
+            recordedByUserId: userId,
+        },
+        include: {
+            recordedByUser: {
+                select: {
+                    id: true,
+                    name: true,
+                },
+            },
+        },
+    });
+
+    await createAuditLog({
+        userId,
+        page: "cash_drawer_shifts",
+        action: "record_cash_in",
+        description: `Cash in of ${amount} (${data.type}) on shift #${shiftId}`,
+        ipAddress,
+    });
+
+    return transaction;
+};
+
+// ============================================================
+// Record cash out transaction
+// ============================================================
+
+const recordCashOut = async (id, data, userId, ipAddress) => {
+    const shiftId = Number(id);
+
+    if (!Number.isInteger(shiftId) || shiftId <= 0) {
+        const error = new Error("Invalid shift ID");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    if (!OUT_TYPES.includes(data.type)) {
+        const error = new Error("Invalid cash-out type");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const amount = Number(data.amount);
+
+    if (Number.isNaN(amount) || amount <= 0) {
+        const error = new Error("Valid amount is required");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const shift = await prisma.cashDrawerShift.findUnique({
+        where: {
+            id: shiftId,
+        },
+        include: {
+            transactions: true,
+        },
+    });
+
+    if (!shift) {
+        const error = new Error("Cash drawer shift not found");
+        error.statusCode = 404;
+        throw error;
+    }
+
+    if (shift.status !== "OPEN") {
+        const error = new Error("Only open shifts accept transactions");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    let totalIn = 0;
+    let totalOut = 0;
+
+    for (const transaction of shift.transactions) {
+        if (IN_TYPES.includes(transaction.type)) {
+            totalIn += Number(transaction.amount);
+        } else if (OUT_TYPES.includes(transaction.type)) {
+            totalOut += Number(transaction.amount);
+        }
+    }
+
+    const currentBalance =
+        Number(shift.openingBalance) + totalIn - totalOut;
+
+    if (amount > currentBalance) {
+        const error = new Error("Insufficient drawer balance");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const transaction = await prisma.cashDrawerTransaction.create({
+        data: {
+            shiftId,
+            type: data.type,
+            amount,
+            description: data.description || null,
+            recordedByUserId: userId,
+        },
+        include: {
+            recordedByUser: {
+                select: {
+                    id: true,
+                    name: true,
+                },
+            },
+        },
+    });
+
+    await createAuditLog({
+        userId,
+        page: "cash_drawer_shifts",
+        action: "record_cash_out",
+        description: `Cash out of ${amount} (${data.type}) on shift #${shiftId}`,
+        ipAddress,
+    });
+
+    return transaction;
+};
+
+module.exports = {
+    getShifts,
+    getShiftById,
+    getCurrentShift,
+    openShift,
+    closeShift,
+    recordCashIn,
+    recordCashOut,
+};

@@ -1,5 +1,23 @@
 const pages = [
     {
+        page_name: "لوحة التحكم",
+        page_key: "dashboard",
+        icon: "layout-dashboard",
+        path: "/",
+    },
+    {
+        page_name: "الموظفين",
+        page_key: "users",
+        icon: "users",
+        path: "/users",
+    },
+    {
+        page_name: "الحضور والأداء",
+        page_key: "attendance",
+        icon: "clock",
+        path: "/attendance",
+    },
+    {
         page_name: "المبيعات",
         page_key: "sales",
         icon: "shopping-cart",
@@ -12,10 +30,34 @@ const pages = [
         path: "/products",
     },
     {
+        page_name: "العملاء",
+        page_key: "customers",
+        icon: "users",
+        path: "/customers",
+    },
+    {
+        page_name: "الموردون",
+        page_key: "suppliers",
+        icon: "truck",
+        path: "/suppliers",
+    },
+    {
+        page_name: "مندوبو التوصيل",
+        page_key: "delegates",
+        icon: "bike",
+        path: "/delegates",
+    },
+    {
         page_name: "المخزون",
         page_key: "inventory",
         icon: "warehouse",
         path: "/inventory",
+    },
+    {
+        page_name: "التحذيرات",
+        page_key: "warnings",
+        icon: "alert-triangle",
+        path: "/warnings",
     },
     {
         page_name: "الطلبات",
@@ -28,6 +70,12 @@ const pages = [
         page_key: "returns",
         icon: "rotate-ccw",
         path: "/returns",
+    },
+    {
+        page_name: "المشتريات",
+        page_key: "purchases",
+        icon: "shopping-bag",
+        path: "/purchases",
     },
     {
         page_name: "ورديات الدرج",

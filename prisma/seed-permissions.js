@@ -26,11 +26,19 @@ const prisma = require("../src/lib/prisma");
 
 
 const pages = [
+    "dashboard",
+    "users",
+    "attendance",
     "sales",
     "products",
+    "customers",
+    "suppliers",
+    "delegates",
     "inventory",
+    "warnings",
     "orders",
     "returns",
+    "purchases",
     "cash_drawer_shifts",
     "financial_reports",
     "audit_log",
@@ -48,6 +56,57 @@ const salesActions = [
     "view_sales_history",
     "export_invoices",
     "view_reports",
+];
+
+const cashDrawerActions = [
+    "open_shift",
+    "close_shift",
+    "record_cash_in",
+    "record_cash_out",
+    "view_shifts_report",
+];
+
+const usersActions = [
+    "view_users",
+    "create_user",
+    "edit_user",
+    "change_user_status",
+    "delete_user",
+    "manage_permissions",
+];
+
+const financialReportActions = [
+    "view_sales_report",
+    "view_profit_report",
+    "view_treasury_report",
+];
+
+const auditLogActions = [
+    "view_audit_log",
+];
+
+const settingsActions = [
+    "view_settings",
+    "update_settings",
+];
+
+const warningsActions = [
+    "view_warnings",
+];
+
+const returnsActions = [
+    "view_returns",
+    "create_return",
+    "edit_return",
+    "approve_return",
+    "cancel_return",
+    "delete_return",
+];
+
+const attendanceActions = [
+    "view_attendance",
+    "check_in",
+    "check_out",
 ];
 
 const seedPermissions = async () => {
@@ -84,30 +143,44 @@ const seedPermissions = async () => {
         });
     }
 
-    // Create / update sales action permissions
-    for (const action of salesActions) {
-        await prisma.userActionPermission.upsert({
-            where: {
-                userId_page_action: {
-                    userId: admin.id,
-                    page: "sales",
-                    action,
+    // Create / update action permissions
+    const actionGroups = [
+        { page: "sales", actions: salesActions },
+        { page: "cash_drawer_shifts", actions: cashDrawerActions },
+        { page: "users", actions: usersActions },
+        { page: "financial_reports", actions: financialReportActions },
+        { page: "audit_log", actions: auditLogActions },
+        { page: "settings", actions: settingsActions },
+        { page: "warnings", actions: warningsActions },
+        { page: "returns", actions: returnsActions },
+        { page: "attendance", actions: attendanceActions },
+    ];
+
+    for (const group of actionGroups) {
+        for (const action of group.actions) {
+            await prisma.userActionPermission.upsert({
+                where: {
+                    userId_page_action: {
+                        userId: admin.id,
+                        page: group.page,
+                        action,
+                    },
                 },
-            },
-            update: {
-                enabled: true,
-            },
-            create: {
-                userId: admin.id,
-                page: "sales",
-                action,
-                enabled: true,
-            },
-        });
+                update: {
+                    enabled: true,
+                },
+                create: {
+                    userId: admin.id,
+                    page: group.page,
+                    action,
+                    enabled: true,
+                },
+            });
+        }
     }
 
     console.log("Admin page permissions created successfully.");
-    console.log("Admin sales action permissions created successfully.");
+    console.log("Admin action permissions created successfully.");
 };
 
 seedPermissions()

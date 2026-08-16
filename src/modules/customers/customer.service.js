@@ -1,0 +1,307 @@
+const prisma = require("../../lib/prisma");
+
+// ============================================================
+// Get all customers
+// ============================================================
+
+const getCustomers = async (reqQuery = {}) => {
+    const { search } = reqQuery;
+
+    const where = {};
+
+    if (search && search.trim()) {
+        where.OR = [
+            {
+                name: {
+                    contains: search.trim(),
+                    mode: "insensitive",
+                },
+            },
+            {
+                phone: {
+                    contains: search.trim(),
+                    mode: "insensitive",
+                },
+            },
+        ];
+    }
+
+    return prisma.customer.findMany({
+        where,
+        orderBy: {
+            createdAt: "desc",
+        },
+    });
+};
+
+// ============================================================
+// Get customer by ID
+// ============================================================
+
+const getCustomerById = async (id) => {
+    const customerId = Number(id);
+
+    if (!Number.isInteger(customerId) || customerId <= 0) {
+        const error = new Error("Invalid customer ID");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const customer = await prisma.customer.findUnique({
+        where: {
+            id: customerId,
+        },
+    });
+
+    if (!customer) {
+        const error = new Error("Customer not found");
+        error.statusCode = 404;
+        throw error;
+    }
+
+    return customer;
+};
+
+// ============================================================
+// Create customer
+// ============================================================
+
+const createCustomer = async (data) => {
+    const {
+        name,
+        phone,
+        whatsapp,
+        email,
+        image,
+        city,
+        address,
+        loyaltyPoints = 0,
+        loyaltyLevel = "REGULAR",
+        notes,
+    } = data;
+
+    if (!name || !name.trim()) {
+        const error = new Error("Customer name is required");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    if (!phone || !phone.trim()) {
+        const error = new Error("Customer phone is required");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const existingCustomer = await prisma.customer.findUnique({
+        where: {
+            phone: phone.trim(),
+        },
+    });
+
+    if (existingCustomer) {
+        const error = new Error(
+            "Customer with this phone number already exists"
+        );
+        error.statusCode = 409;
+        throw error;
+    }
+
+    const parsedLoyaltyPoints = Number(loyaltyPoints);
+
+    if (
+        !Number.isInteger(parsedLoyaltyPoints) ||
+        parsedLoyaltyPoints < 0
+    ) {
+        const error = new Error("Invalid loyalty points");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    return prisma.customer.create({
+        data: {
+            name: name.trim(),
+            phone: phone.trim(),
+            whatsapp: whatsapp?.trim() || null,
+            email: email?.trim() || null,
+            image: image?.trim() || null,
+            city: city?.trim() || null,
+            address: address?.trim() || null,
+            loyaltyPoints: parsedLoyaltyPoints,
+            loyaltyLevel: loyaltyLevel?.trim() || "REGULAR",
+            notes: notes?.trim() || null,
+        },
+    });
+};
+
+// ============================================================
+// Update customer
+// ============================================================
+
+const updateCustomer = async (id, data) => {
+    const customerId = Number(id);
+
+    if (!Number.isInteger(customerId) || customerId <= 0) {
+        const error = new Error("Invalid customer ID");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const existingCustomer = await prisma.customer.findUnique({
+        where: {
+            id: customerId,
+        },
+    });
+
+    if (!existingCustomer) {
+        const error = new Error("Customer not found");
+        error.statusCode = 404;
+        throw error;
+    }
+
+    const {
+        name,
+        phone,
+        whatsapp,
+        email,
+        image,
+        city,
+        address,
+        loyaltyPoints,
+        loyaltyLevel,
+        notes,
+    } = data;
+
+    if (name !== undefined && !name.trim()) {
+        const error = new Error("Customer name cannot be empty");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    if (phone !== undefined && !phone.trim()) {
+        const error = new Error("Customer phone cannot be empty");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    if (
+        phone !== undefined &&
+        phone.trim() !== existingCustomer.phone
+    ) {
+        const duplicate = await prisma.customer.findUnique({
+            where: {
+                phone: phone.trim(),
+            },
+        });
+
+        if (duplicate && duplicate.id !== customerId) {
+            const error = new Error(
+                "Customer with this phone number already exists"
+            );
+            error.statusCode = 409;
+            throw error;
+        }
+    }
+
+    let parsedLoyaltyPoints;
+
+    if (loyaltyPoints !== undefined) {
+        parsedLoyaltyPoints = Number(loyaltyPoints);
+
+        if (
+            !Number.isInteger(parsedLoyaltyPoints) ||
+            parsedLoyaltyPoints < 0
+        ) {
+            const error = new Error("Invalid loyalty points");
+            error.statusCode = 400;
+            throw error;
+        }
+    }
+
+    return prisma.customer.update({
+        where: {
+            id: customerId,
+        },
+
+        data: {
+            ...(name !== undefined && {
+                name: name.trim(),
+            }),
+
+            ...(phone !== undefined && {
+                phone: phone.trim(),
+            }),
+
+            ...(whatsapp !== undefined && {
+                whatsapp: whatsapp?.trim() || null,
+            }),
+
+            ...(email !== undefined && {
+                email: email?.trim() || null,
+            }),
+
+            ...(image !== undefined && {
+                image: image?.trim() || null,
+            }),
+
+            ...(city !== undefined && {
+                city: city?.trim() || null,
+            }),
+
+            ...(address !== undefined && {
+                address: address?.trim() || null,
+            }),
+
+            ...(loyaltyPoints !== undefined && {
+                loyaltyPoints: parsedLoyaltyPoints,
+            }),
+
+            ...(loyaltyLevel !== undefined && {
+                loyaltyLevel: loyaltyLevel?.trim() || "REGULAR",
+            }),
+
+            ...(notes !== undefined && {
+                notes: notes?.trim() || null,
+            }),
+        },
+    });
+};
+
+// ============================================================
+// Delete customer
+// ============================================================
+
+const deleteCustomer = async (id) => {
+    const customerId = Number(id);
+
+    if (!Number.isInteger(customerId) || customerId <= 0) {
+        const error = new Error("Invalid customer ID");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const existingCustomer = await prisma.customer.findUnique({
+        where: {
+            id: customerId,
+        },
+    });
+
+    if (!existingCustomer) {
+        const error = new Error("Customer not found");
+        error.statusCode = 404;
+        throw error;
+    }
+
+    return prisma.customer.delete({
+        where: {
+            id: customerId,
+        },
+    });
+};
+
+module.exports = {
+    getCustomers,
+    getCustomerById,
+    createCustomer,
+    updateCustomer,
+    deleteCustomer,
+};
