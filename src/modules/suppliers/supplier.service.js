@@ -129,6 +129,24 @@ const updateSupplier = async (id, data) => {
         notes,
     } = data;
 
+    // Prevent duplicate supplier name on rename
+    if (name !== undefined) {
+        const duplicate = await prisma.supplier.findFirst({
+            where: {
+                name,
+                NOT: {
+                    id: Number(id),
+                },
+            },
+        });
+
+        if (duplicate) {
+            const error = new Error("Supplier name already exists");
+            error.statusCode = 409;
+            throw error;
+        }
+    }
+
     const updatedSupplier = await prisma.supplier.update({
         where: {
             id: Number(id),

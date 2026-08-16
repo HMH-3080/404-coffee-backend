@@ -12,12 +12,6 @@ const pages = [
         path: "/users",
     },
     {
-        page_name: "الحضور والأداء",
-        page_key: "attendance",
-        icon: "clock",
-        path: "/attendance",
-    },
-    {
         page_name: "المبيعات",
         page_key: "sales",
         icon: "shopping-cart",

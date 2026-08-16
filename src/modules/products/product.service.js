@@ -83,52 +83,10 @@ const getProductById = async (id) => {
 };
 
 // ============================================================
-// Get product by barcode (POS scan)
-// ============================================================
-
-const getProductByBarcode = async (barcode) => {
-  if (!barcode) {
-    const error = new Error("Barcode is required");
-    error.statusCode = 400;
-    throw error;
-  }
-
-  const product = await prisma.product.findUnique({
-    where: {
-      barcode: String(barcode),
-    },
-
-    include: {
-      types: true,
-
-      sizes: {
-        include: {
-          ingredients: {
-            include: {
-              rawMaterial: true,
-            },
-          },
-        },
-      },
-
-      addons: true,
-    },
-  });
-
-  if (!product) {
-    const error = new Error("Product not found for this barcode");
-    error.statusCode = 404;
-    throw error;
-  }
-
-  return product;
-};
-
-// ============================================================
 // Create product
 // ============================================================
 
-const createProduct = async ({ name, description, image, barcode }) => {
+const createProduct = async ({ name, description, image }) => {
   if (!name) {
     const error = new Error("Product name is required");
     error.statusCode = 400;
@@ -147,26 +105,11 @@ const createProduct = async ({ name, description, image, barcode }) => {
     throw error;
   }
 
-  if (barcode !== undefined && barcode !== "") {
-    const existingBarcode = await prisma.product.findUnique({
-      where: {
-        barcode: String(barcode),
-      },
-    });
-
-    if (existingBarcode) {
-      const error = new Error("Barcode already used by another product");
-      error.statusCode = 409;
-      throw error;
-    }
-  }
-
   return prisma.product.create({
     data: {
       name,
       description: description || null,
       image: image || null,
-      barcode: barcode || null,
     },
 
     include: {
@@ -196,21 +139,7 @@ const updateProduct = async (id, data) => {
     throw error;
   }
 
-  const { name, description, image, barcode } = data;
-
-  if (barcode !== undefined && barcode !== "") {
-    const existingBarcode = await prisma.product.findUnique({
-      where: {
-        barcode: String(barcode),
-      },
-    });
-
-    if (existingBarcode && existingBarcode.id !== productId) {
-      const error = new Error("Barcode already used by another product");
-      error.statusCode = 409;
-      throw error;
-    }
-  }
+  const { name, description, image } = data;
 
   return prisma.product.update({
     where: {
@@ -224,9 +153,6 @@ const updateProduct = async (id, data) => {
       }),
       ...(image !== undefined && {
         image: image || null,
-      }),
-      ...(barcode !== undefined && {
-        barcode: barcode || null,
       }),
     },
 
@@ -810,7 +736,6 @@ const deleteAddon = async (addonId) => {
 module.exports = {
     getProducts,
     getProductById,
-    getProductByBarcode,
     createProduct,
     updateProduct,
     deleteProduct,

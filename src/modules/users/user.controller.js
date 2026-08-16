@@ -14,6 +14,7 @@
  */
 
 const bcrypt = require("bcryptjs");
+const { logAudit } = require("../../utils/audit");
 
 const prisma = require("../../lib/prisma");
 
@@ -41,7 +42,6 @@ const getUsers = async (req, res, next) => {
         name: true,
         position: true,
         status: true,
-        fingerprintId: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -108,7 +108,6 @@ const createUser = async (req, res, next) => {
       password,
       position,
       permissions = [],
-      fingerprintId,
     } = req.body;
 
     // Validate required data
@@ -172,24 +171,6 @@ const createUser = async (req, res, next) => {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Check fingerprintId uniqueness
-    if (fingerprintId !== undefined && fingerprintId !== "") {
-      const existingFingerprint = await prisma.user.findUnique({
-        where: {
-          fingerprintId: String(fingerprintId),
-        },
-      });
-
-      if (existingFingerprint) {
-        const error = new Error(
-          "Fingerprint ID already used by another employee"
-        );
-
-        error.statusCode = 409;
-        throw error;
-      }
-    }
-
     // Create user + permissions
     const user = await prisma.user.create({
       data: {
@@ -197,10 +178,6 @@ const createUser = async (req, res, next) => {
         passwordHash,
         position,
         status: "ACTIVE",
-        ...(fingerprintId !== undefined &&
-          fingerprintId !== "" && {
-            fingerprintId: String(fingerprintId),
-          }),
 
         // Create page permissions
         pagePermissions: {
@@ -227,13 +204,15 @@ const createUser = async (req, res, next) => {
         name: true,
         position: true,
         status: true,
-        fingerprintId: true,
         createdAt: true,
         updatedAt: true,
       },
     });
 
-    res.status(201).json({
+    
+        // Record in audit log
+        await logAudit(req, "users", "create_user", `Created user ${user.name}`);
+        res.status(201).json({
       success: true,
       message: "User created successfully",
       data: user,
@@ -265,7 +244,6 @@ const updateUser = async (req, res, next) => {
       name,
       password,
       position,
-      fingerprintId,
     } = req.body;
 
     // Validate ID
@@ -294,6 +272,28 @@ const updateUser = async (req, res, next) => {
     const updateData = {};
 
     if (name !== undefined) {
+      if (!name.trim()) {
+        const error = new Error("Name cannot be empty");
+        error.statusCode = 400;
+        throw error;
+      }
+
+      // Prevent ambiguous login: names must stay unique
+      const duplicate = await prisma.user.findFirst({
+        where: {
+          name,
+          NOT: {
+            id: userId,
+          },
+        },
+      });
+
+      if (duplicate) {
+        const error = new Error("User already exists");
+        error.statusCode = 409;
+        throw error;
+      }
+
       updateData.name = name;
     }
 
@@ -310,34 +310,6 @@ const updateUser = async (req, res, next) => {
         await bcrypt.hash(password, 10);
     }
 
-    // Set / clear fingerprintId
-    if (fingerprintId !== undefined) {
-      if (fingerprintId === "" || fingerprintId === null) {
-        updateData.fingerprintId = null;
-      } else {
-        const existingFingerprint =
-          await prisma.user.findUnique({
-            where: {
-              fingerprintId: String(fingerprintId),
-            },
-          });
-
-        if (
-          existingFingerprint &&
-          existingFingerprint.id !== userId
-        ) {
-          const error = new Error(
-            "Fingerprint ID already used by another employee"
-          );
-
-          error.statusCode = 409;
-          throw error;
-        }
-
-        updateData.fingerprintId = String(fingerprintId);
-      }
-    }
-
     // Update user
     const user = await prisma.user.update({
       where: {
@@ -349,13 +321,15 @@ const updateUser = async (req, res, next) => {
         name: true,
         position: true,
         status: true,
-        fingerprintId: true,
         createdAt: true,
         updatedAt: true,
       },
     });
 
-    res.status(200).json({
+    
+        // Record in audit log
+        await logAudit(req, "users", "edit_user", `Updated user #${req.params.id}`);
+        res.status(200).json({
       success: true,
       message: "User updated successfully",
       data: user,
@@ -529,7 +503,10 @@ const getUserPermissions = async (req, res, next) => {
         ],
       });
 
-    res.status(200).json({
+    
+        // Record in audit log
+        await logAudit(req, "users", "change_user_status", `Changed user #${req.params.id} status to ${status}`);
+        res.status(200).json({
       success: true,
       data: {
         user,
@@ -733,6 +710,14 @@ const updateUserPermissions = async (req, res, next) => {
         ],
       });
 
+    // Record in audit log
+    await logAudit(
+      req,
+      "users",
+      "manage_permissions",
+      `Updated permissions for user #${req.params.id}`
+    );
+
     res.status(200).json({
       success: true,
       message: "User permissions updated successfully",
@@ -803,7 +788,10 @@ const deleteUser = async (req, res, next) => {
       },
     });
 
-    res.status(200).json({
+    
+        // Record in audit log
+        await logAudit(req, "users", "delete_user", `Deleted user #${req.params.id}`);
+        res.status(200).json({
       success: true,
       message: "User deleted successfully",
       data: user,

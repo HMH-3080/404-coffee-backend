@@ -28,7 +28,6 @@ const prisma = require("../src/lib/prisma");
 const pages = [
     "dashboard",
     "users",
-    "attendance",
     "sales",
     "products",
     "customers",
@@ -103,12 +102,6 @@ const returnsActions = [
     "delete_return",
 ];
 
-const attendanceActions = [
-    "view_attendance",
-    "check_in",
-    "check_out",
-];
-
 const seedPermissions = async () => {
     // Find Admin user
     const admin = await prisma.user.findFirst({
@@ -153,7 +146,6 @@ const seedPermissions = async () => {
         { page: "settings", actions: settingsActions },
         { page: "warnings", actions: warningsActions },
         { page: "returns", actions: returnsActions },
-        { page: "attendance", actions: attendanceActions },
     ];
 
     for (const group of actionGroups) {

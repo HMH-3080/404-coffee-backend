@@ -1,9 +1,19 @@
 const authService = require("./auth.service");
 
+const { logAudit } = require("../../utils/audit");
+
 const loginUser = async (req, res, next) => {
 
     try {
         const result = await authService.loginUser(req.body);
+
+        // Record successful login in the audit log
+        await logAudit(
+            { ...req, user: { userId: result.user.id } },
+            "auth",
+            "login",
+            `User ${result.user.name} logged in`
+        );
 
         res.status(200).json({
             success: true,

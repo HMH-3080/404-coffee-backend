@@ -1,4 +1,5 @@
 const productService = require("./product.service");
+const { logAudit } = require("../../utils/audit");
 
 // Get all products
 const getProducts = async (req, res, next) => {
@@ -30,22 +31,6 @@ const getProductById = async (req, res, next) => {
     }
 };
 
-// Get product by barcode (POS scan)
-const getProductByBarcode = async (req, res, next) => {
-    try {
-        const product = await productService.getProductByBarcode(
-            req.params.code
-        );
-
-        res.status(200).json({
-            success: true,
-            data: product,
-        });
-    } catch (error) {
-        next(error);
-    }
-};
-
 // Create product
 const createProduct = async (req, res, next) => {
     try {
@@ -53,7 +38,9 @@ const createProduct = async (req, res, next) => {
             req.body
         );
 
-        res.status(201).json({
+
+                // Record in audit log
+                await logAudit(req, "products", "create_product", "Product created successfully");        res.status(201).json({
             success: true,
             message: "Product created successfully",
             data: product,
@@ -71,7 +58,9 @@ const updateProduct = async (req, res, next) => {
             req.body
         );
 
-        res.status(200).json({
+
+                // Record in audit log
+                await logAudit(req, "products", "edit_product", "Product updated successfully");        res.status(200).json({
             success: true,
             message: "Product updated successfully",
             data: product,
@@ -88,7 +77,9 @@ const deleteProduct = async (req, res, next) => {
             req.params.id
         );
 
-        res.status(200).json({
+
+                // Record in audit log
+                await logAudit(req, "products", "delete_product", "Product deleted successfully");        res.status(200).json({
             success: true,
             message: "Product deleted successfully",
             data: product,
@@ -349,7 +340,6 @@ const deleteAddon = async (req, res, next) => {
 module.exports = {
     getProducts,
     getProductById,
-    getProductByBarcode,
     createProduct,
     updateProduct,
     deleteProduct,

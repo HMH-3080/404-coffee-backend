@@ -1,4 +1,5 @@
 const supplierService = require("./supplier.service");
+const { logAudit } = require("../../utils/audit");
 
 // Get all suppliers
 
@@ -47,7 +48,9 @@ const createSupplier = async (req, res, next) => {
             req.body
         );
 
-        res.status(201).json({
+
+                // Record in audit log
+                await logAudit(req, "suppliers", "create_supplier", "Supplier created successfully");        res.status(201).json({
             success: true,
             message: "Supplier created successfully",
             data: supplier,
@@ -69,7 +72,9 @@ const updateSupplier = async (req, res, next) => {
             req.body,
         );
 
-        res.status(200).json({
+
+                // Record in audit log
+                await logAudit(req, "suppliers", "edit_supplier", "Supplier updated successfully");        res.status(200).json({
             success: true,
             message: "Supplier updated successfully",
             data: supplier,
@@ -87,7 +92,9 @@ const deleteSupplier = async (req, res, next) => {
             req.params.id
         );
 
-        res.status(200).json({
+
+                // Record in audit log
+                await logAudit(req, "suppliers", "delete_supplier", "Supplier deleted successfully");        res.status(200).json({
             success: true,
             message: "Supplier deleted successfully",
             data: supplier,

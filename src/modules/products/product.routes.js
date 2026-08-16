@@ -9,7 +9,6 @@ const {
 const {
   getProducts,
   getProductById,
-  getProductByBarcode,
   createProduct,
   updateProduct,
   deleteProduct,
@@ -32,14 +31,6 @@ const router = express.Router();
 
 // Get all products
 router.get("/", authMiddleware, requirePagePermission("products"), getProducts);
-
-// Get product by barcode (POS scan) — MUST be before "/:id"
-router.get(
-  "/by-barcode/:code",
-  authMiddleware,
-  requirePagePermission("products"),
-  getProductByBarcode,
-);
 
 // Get product by ID
 router.get(

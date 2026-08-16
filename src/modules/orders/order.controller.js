@@ -1,26 +1,25 @@
 const orderService = require("./order.service");
 
+const { logAudit } = require("../../utils/audit");
+
 // ============================================================
 // Create order
 // POST /api/orders
 // ============================================================
 
-const createOrder = async (req, res) => {
+const createOrder = async (req, res, next) => {
     try {
         const order = await orderService.createOrder(req.body);
 
+
+        await logAudit(req, "orders", "create_order", "Order created successfully");
         return res.status(201).json({
             success: true,
             message: "Order created successfully",
             data: order,
         });
     } catch (error) {
-        console.error("Create order error:", error);
-
-        return res.status(400).json({
-            success: false,
-            message: error.message,
-        });
+        next(error);
     }
 };
 
@@ -29,7 +28,7 @@ const createOrder = async (req, res) => {
 // GET /api/orders
 // ============================================================
 
-const getOrders = async (req, res) => {
+const getOrders = async (req, res, next) => {
     try {
         const orders = await orderService.getOrders(req.query);
 
@@ -38,12 +37,7 @@ const getOrders = async (req, res) => {
             data: orders,
         });
     } catch (error) {
-        console.error("Get orders error:", error);
-
-        return res.status(400).json({
-            success: false,
-            message: error.message,
-        });
+        next(error);
     }
 };
 
@@ -52,7 +46,7 @@ const getOrders = async (req, res) => {
 // GET /api/orders/:id
 // ============================================================
 
-const getOrderById = async (req, res) => {
+const getOrderById = async (req, res, next) => {
     try {
         const order = await orderService.getOrderById(
             req.params.id
@@ -63,17 +57,7 @@ const getOrderById = async (req, res) => {
             data: order,
         });
     } catch (error) {
-        console.error("Get order error:", error);
-
-        const statusCode =
-            error.message === "Order not found"
-                ? 404
-                : 400;
-
-        return res.status(statusCode).json({
-            success: false,
-            message: error.message,
-        });
+        next(error);
     }
 };
 
@@ -82,30 +66,22 @@ const getOrderById = async (req, res) => {
 // PUT /api/orders/:id
 // ============================================================
 
-const updateOrder = async (req, res) => {
+const updateOrder = async (req, res, next) => {
     try {
         const order = await orderService.updateOrder(
             req.params.id,
             req.body
         );
 
+
+        await logAudit(req, "orders", "edit_order", "Order updated successfully");
         return res.status(200).json({
             success: true,
             message: "Order updated successfully",
             data: order,
         });
     } catch (error) {
-        console.error("Update order error:", error);
-
-        const statusCode =
-            error.message === "Order not found"
-                ? 404
-                : 400;
-
-        return res.status(statusCode).json({
-            success: false,
-            message: error.message,
-        });
+        next(error);
     }
 };
 
@@ -114,29 +90,21 @@ const updateOrder = async (req, res) => {
 // DELETE /api/orders/:id
 // ============================================================
 
-const deleteOrder = async (req, res) => {
+const deleteOrder = async (req, res, next) => {
     try {
         const order = await orderService.deleteOrder(
             req.params.id
         );
 
+
+        await logAudit(req, "orders", "delete_order", "Order deleted successfully");
         return res.status(200).json({
             success: true,
             message: "Order deleted successfully",
             data: order,
         });
     } catch (error) {
-        console.error("Delete order error:", error);
-
-        const statusCode =
-            error.message === "Order not found"
-                ? 404
-                : 400;
-
-        return res.status(statusCode).json({
-            success: false,
-            message: error.message,
-        });
+        next(error);
     }
 };
 

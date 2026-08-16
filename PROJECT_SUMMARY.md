@@ -36,13 +36,11 @@
 | Settings | `/api/settings` | ✅ مكتمل |
 | Warnings (مخزون منخفض/صلاحية) | `/api/warnings` | ✅ مكتمل |
 | Dashboard | `/api/dashboard` | ✅ مكتمل (ملخص: مبيعات/طلبات/وردية/تنبيهات/إحصائيات) |
-| Attendance / أداء الموظفين | `/api/attendance` | ✅ مكتمل (check-in/check-out + ملخص حضور وتأخير) |
-| Attendance — بصمة الموظفين | `POST /api/attendance/fingerprint` | ✅ مكتمل (عام بدون JWT — البصمة هي الهوية، first=check-in / second=check-out) — ربط البصمة عبر `PUT /api/users/:id {fingerprintId}` |
-| Products — باركود | `/api/products/by-barcode/:code` | ✅ مكتمل (مسح باركود في الـ POS يجلب المنتج فورًا) — حقل `barcode` فريد في إنشاء/تعديل المنتج |
 | AI Chat (OpenAI) | `/api/chat` | ✅ مكتمل (function calling: عام + بيانات الموظفين) — يحتاج `OPENAI_API_KEY` |
+| الحضور | تسجيل الدخول | ✅ تسجيل دخول الموظف (`POST /api/auth/login`) يُسجَّل تلقائيًا في سجل الأحداث (`auth` / `login`) — لا يوجد نظام حضور بأجهزة/QR/بصمة |
 
 ### صفحات الصلاحيات في `permissions.config.js` + `seed-permissions.js`
-`dashboard, users, attendance, sales, products, customers, suppliers, delegates, inventory, warnings, orders, returns, purchases, cash_drawer_shifts, financial_reports, audit_log, settings`
+`dashboard, users, sales, products, customers, suppliers, delegates, inventory, warnings, orders, returns, purchases, cash_drawer_shifts, financial_reports, audit_log, settings`
 > ✅ تم إصلاح مشكلة الصفحات الناقصة (suppliers/customers/delegates/users/warnings/purchases/dashboard).
 
 ### تنظيف تم (أغسطس 2026)

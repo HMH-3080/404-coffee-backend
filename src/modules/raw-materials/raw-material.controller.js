@@ -12,6 +12,7 @@
  */
 
 const rawMaterialService = require("./raw-material.service");
+const { logAudit } = require("../../utils/audit");
 
 // Get all raw materials
 const getRawMaterials = async (req, res, next) => {
@@ -33,7 +34,9 @@ const createRawMaterial = async (req, res, next) => {
     try {
         const rawMaterial = await rawMaterialService.createRawMaterial(req.body);
 
-        res.status(201).json({
+
+                // Record in audit log
+                await logAudit(req, "inventory", "create_raw_material", "Raw material created successfully");        res.status(201).json({
             success: true,
             message: "Raw material created successfully",
             data: rawMaterial,
@@ -52,7 +55,9 @@ const updateRawMaterial = async (req, res, next) => {
             req.body
         );
 
-        res.status(200).json({
+
+                // Record in audit log
+                await logAudit(req, "inventory", "edit_raw_material", "Raw material updated successfully");        res.status(200).json({
             success: true,
             message: "Raw material updated successfully",
             data: rawMaterial,
@@ -69,7 +74,9 @@ const deleteRawMaterial = async (req, res, next) => {
             req.params.id
         );
 
-        res.status(200).json({
+
+                // Record in audit log
+                await logAudit(req, "inventory", "delete_raw_material", "Raw material deleted successfully");        res.status(200).json({
             success: true,
             message: "Raw material deleted successfully",
             data: rawMaterial,
@@ -88,7 +95,9 @@ const addBatch = async (req, res, next) => {
                 req.body
             );
 
-        res.status(201).json({
+
+                // Record in audit log
+                await logAudit(req, "inventory", "add_batch", "Batch added successfully");        res.status(201).json({
             success: true,
             message: "Batch added successfully",
             data: batch,

@@ -4,8 +4,15 @@ const prisma = require("../../lib/prisma");
 // Helpers
 // ============================================================
 
+const httpError = (message, statusCode = 400) => {
+    const error = new Error(message);
+    error.statusCode = statusCode;
+    return error;
+};
+
 const getOrderInclude = {
     customer: true,
+    delegate: true,
 
     items: {
         include: {
@@ -17,7 +24,7 @@ const getOrderInclude = {
 
 const validateAndPrepareItems = async (items) => {
     if (!Array.isArray(items) || items.length === 0) {
-        throw new Error("Order must contain at least one item");
+        throw httpError("Order must contain at least one item");
     }
 
     const orderItems = [];
@@ -28,6 +35,17 @@ const validateAndPrepareItems = async (items) => {
         const productSizeId = Number(item.productSizeId);
         const quantity = Number(item.quantity);
 
+        if (
+            !Number.isInteger(productId) ||
+            productId <= 0 ||
+            !Number.isInteger(productSizeId) ||
+            productSizeId <= 0 ||
+            !Number.isFinite(quantity) ||
+            quantity <= 0
+        ) {
+            throw httpError("Invalid order item data");
+        }
+
         const product = await prisma.product.findUnique({
             where: {
                 id: productId,
@@ -35,8 +53,9 @@ const validateAndPrepareItems = async (items) => {
         });
 
         if (!product) {
-            throw new Error(
-                `Product with ID ${item.productId} not found`
+            throw httpError(
+                `Product with ID ${item.productId} not found`,
+                404
             );
         }
 
@@ -47,13 +66,14 @@ const validateAndPrepareItems = async (items) => {
         });
 
         if (!productSize) {
-            throw new Error(
-                `Product size with ID ${item.productSizeId} not found`
+            throw httpError(
+                `Product size with ID ${item.productSizeId} not found`,
+                404
             );
         }
 
         if (productSize.productId !== product.id) {
-            throw new Error(
+            throw httpError(
                 `Product size ${item.productSizeId} does not belong to product ${item.productId}`
             );
         }
@@ -78,6 +98,37 @@ const validateAndPrepareItems = async (items) => {
     };
 };
 
+const ALLOWED_ORDER_TYPES = ["DINE_IN", "TAKEAWAY", "ONLINE"];
+const ALLOWED_STATUSES = [
+    "PENDING",
+    "PREPARING",
+    "READY",
+    "COMPLETED",
+    "CANCELLED",
+];
+const ALLOWED_PAYMENT_METHODS = ["CASH", "CARD", "WALLET"];
+
+const validateOrderEnums = ({
+    orderType,
+    paymentMethod,
+    status,
+}) => {
+    if (orderType !== undefined && !ALLOWED_ORDER_TYPES.includes(orderType)) {
+        throw httpError("Invalid order type");
+    }
+
+    if (
+        paymentMethod !== undefined &&
+        !ALLOWED_PAYMENT_METHODS.includes(paymentMethod)
+    ) {
+        throw httpError("Invalid payment method");
+    }
+
+    if (status !== undefined && !ALLOWED_STATUSES.includes(status)) {
+        throw httpError("Invalid order status");
+    }
+};
+
 // ============================================================
 // Create order
 // ============================================================
@@ -85,6 +136,7 @@ const validateAndPrepareItems = async (items) => {
 const createOrder = async (data) => {
     const {
         customerId,
+        delegateId,
         orderType = "DINE_IN",
         phone,
         discount = 0,
@@ -92,6 +144,8 @@ const createOrder = async (data) => {
         notes,
         items,
     } = data;
+
+    validateOrderEnums({ orderType, paymentMethod });
 
     // --------------------------------------------------------
     // Validate customer
@@ -105,7 +159,23 @@ const createOrder = async (data) => {
         });
 
         if (!customer) {
-            throw new Error("Customer not found");
+            throw httpError("Customer not found", 404);
+        }
+    }
+
+    // --------------------------------------------------------
+    // Validate delegate
+    // --------------------------------------------------------
+
+    if (delegateId !== undefined && delegateId !== null) {
+        const delegate = await prisma.delegate.findUnique({
+            where: {
+                id: Number(delegateId),
+            },
+        });
+
+        if (!delegate) {
+            throw httpError("Delegate not found", 404);
         }
     }
 
@@ -123,11 +193,11 @@ const createOrder = async (data) => {
     const discountValue = Number(discount) || 0;
 
     if (discountValue < 0) {
-        throw new Error("Discount cannot be negative");
+        throw httpError("Discount cannot be negative");
     }
 
     if (discountValue > subtotal) {
-        throw new Error("Discount cannot be greater than subtotal");
+        throw httpError("Discount cannot be greater than subtotal");
     }
 
     const total = subtotal - discountValue;
@@ -141,6 +211,11 @@ const createOrder = async (data) => {
             customerId:
                 customerId !== undefined && customerId !== null
                     ? Number(customerId)
+                    : null,
+
+            delegateId:
+                delegateId !== undefined && delegateId !== null
+                    ? Number(delegateId)
                     : null,
 
             orderType,
@@ -174,6 +249,7 @@ const getOrders = async (filters = {}) => {
         orderType,
         paymentMethod,
         customerId,
+        delegateId,
     } = filters;
 
     const where = {};
@@ -194,6 +270,10 @@ const getOrders = async (filters = {}) => {
         where.customerId = Number(customerId);
     }
 
+    if (delegateId !== undefined && delegateId !== "") {
+        where.delegateId = Number(delegateId);
+    }
+
     const orders = await prisma.order.findMany({
         where,
 
@@ -212,16 +292,22 @@ const getOrders = async (filters = {}) => {
 // ============================================================
 
 const getOrderById = async (id) => {
+    const orderId = Number(id);
+
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+        throw httpError("Invalid order ID");
+    }
+
     const order = await prisma.order.findUnique({
         where: {
-            id: Number(id),
+            id: orderId,
         },
 
         include: getOrderInclude,
     });
 
     if (!order) {
-        throw new Error("Order not found");
+        throw httpError("Order not found", 404);
     }
 
     return order;
@@ -234,6 +320,10 @@ const getOrderById = async (id) => {
 const updateOrder = async (id, data) => {
     const orderId = Number(id);
 
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+        throw httpError("Invalid order ID");
+    }
+
     const existingOrder = await prisma.order.findUnique({
         where: {
             id: orderId,
@@ -241,11 +331,12 @@ const updateOrder = async (id, data) => {
     });
 
     if (!existingOrder) {
-        throw new Error("Order not found");
+        throw httpError("Order not found", 404);
     }
 
     const {
         customerId,
+        delegateId,
         orderType,
         phone,
         discount,
@@ -254,6 +345,8 @@ const updateOrder = async (id, data) => {
         notes,
         items,
     } = data;
+
+    validateOrderEnums({ orderType, paymentMethod, status });
 
     // --------------------------------------------------------
     // Validate customer
@@ -267,7 +360,23 @@ const updateOrder = async (id, data) => {
         });
 
         if (!customer) {
-            throw new Error("Customer not found");
+            throw httpError("Customer not found", 404);
+        }
+    }
+
+    // --------------------------------------------------------
+    // Validate delegate
+    // --------------------------------------------------------
+
+    if (delegateId !== undefined && delegateId !== null) {
+        const delegate = await prisma.delegate.findUnique({
+            where: {
+                id: Number(delegateId),
+            },
+        });
+
+        if (!delegate) {
+            throw httpError("Delegate not found", 404);
         }
     }
 
@@ -280,6 +389,11 @@ const updateOrder = async (id, data) => {
     if (customerId !== undefined) {
         updateData.customerId =
             customerId === null ? null : Number(customerId);
+    }
+
+    if (delegateId !== undefined) {
+        updateData.delegateId =
+            delegateId === null ? null : Number(delegateId);
     }
 
     if (orderType !== undefined) {
@@ -316,11 +430,11 @@ const updateOrder = async (id, data) => {
                 : Number(existingOrder.discount);
 
         if (discountValue < 0) {
-            throw new Error("Discount cannot be negative");
+            throw httpError("Discount cannot be negative");
         }
 
         if (discountValue > subtotal) {
-            throw new Error(
+            throw httpError(
                 "Discount cannot be greater than subtotal"
             );
         }
@@ -330,7 +444,6 @@ const updateOrder = async (id, data) => {
         updateData.total = subtotal - discountValue;
 
         // ----------------------------------------------------
-        // IMPORTANT:
         // Delete and recreate items inside transaction
         // ----------------------------------------------------
 
@@ -369,14 +482,14 @@ const updateOrder = async (id, data) => {
         const discountValue = Number(discount);
 
         if (discountValue < 0) {
-            throw new Error("Discount cannot be negative");
+            throw httpError("Discount cannot be negative");
         }
 
         if (
             discountValue >
             Number(existingOrder.subtotal)
         ) {
-            throw new Error(
+            throw httpError(
                 "Discount cannot be greater than subtotal"
             );
         }
@@ -411,6 +524,10 @@ const updateOrder = async (id, data) => {
 const deleteOrder = async (id) => {
     const orderId = Number(id);
 
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+        throw httpError("Invalid order ID");
+    }
+
     const existingOrder = await prisma.order.findUnique({
         where: {
             id: orderId,
@@ -418,7 +535,7 @@ const deleteOrder = async (id) => {
     });
 
     if (!existingOrder) {
-        throw new Error("Order not found");
+        throw httpError("Order not found", 404);
     }
 
     const order = await prisma.order.delete({

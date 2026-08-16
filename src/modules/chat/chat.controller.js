@@ -1,13 +1,15 @@
 const jwt = require("jsonwebtoken");
+const prisma = require("../../lib/prisma");
+const { jwtSecret } = require("../../config/env");
 const { chatWithAssistant } = require("./chat.service");
 
 // ============================================================
-// Optional auth: if a valid staff token is present, enable
-// staff tools. Public users (customers) still get general chat
-// + menu info.
+// Optional auth: if a valid ACTIVE staff token with at least one
+// page permission is present, enable staff tools. Public users
+// (customers) still get general chat + menu info.
 // ============================================================
 
-const resolveOptionalUser = (req) => {
+const resolveOptionalUser = async (req) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader?.startsWith("Bearer ")) {
@@ -20,16 +22,50 @@ const resolveOptionalUser = (req) => {
         return null;
     }
 
+    let decoded;
+
     try {
-        return jwt.verify(token, process.env.JWT_SECRET);
+        decoded = jwt.verify(token, jwtSecret);
     } catch {
         return null;
     }
+
+    const user = await prisma.user.findUnique({
+        where: {
+            id: decoded.userId,
+        },
+        select: {
+            id: true,
+            status: true,
+            pagePermissions: {
+                where: {
+                    enabled: true,
+                },
+                select: {
+                    id: true,
+                },
+            },
+        },
+    });
+
+    if (!user || user.status !== "ACTIVE") {
+        return null;
+    }
+
+    // A user with no enabled page permissions has no staff access
+    if (user.pagePermissions.length === 0) {
+        return null;
+    }
+
+    return {
+        id: user.id,
+        userId: user.id,
+    };
 };
 
 const chat = async (req, res, next) => {
     try {
-        const user = resolveOptionalUser(req);
+        const user = await resolveOptionalUser(req);
 
         const result = await chatWithAssistant({
             messages: req.body.messages,

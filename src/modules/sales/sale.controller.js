@@ -1,4 +1,5 @@
 const saleService = require("./sale.service");
+const { logAudit } = require("../../utils/audit");
 
 // ============================================================
 // Get all sales
@@ -44,7 +45,9 @@ const createSale = async (req, res, next) => {
     try {
         const sale = await saleService.createSale(req.body);
 
-        res.status(201).json({
+
+                // Record in audit log
+                await logAudit(req, "sales", "create_invoice", "Sale created successfully");        res.status(201).json({
             success: true,
             message: "Sale created successfully",
             data: sale,
@@ -66,7 +69,9 @@ const updateSale = async (req, res, next) => {
             req.body
         );
 
-        res.status(200).json({
+
+                // Record in audit log
+                await logAudit(req, "sales", "edit_invoice", "Sale updated successfully");        res.status(200).json({
             success: true,
             message: "Sale updated successfully",
             data: sale,
@@ -86,7 +91,9 @@ const deleteSale = async (req, res, next) => {
             req.params.id
         );
 
-        res.status(200).json({
+
+                // Record in audit log
+                await logAudit(req, "sales", "cancel_invoice", "Sale deleted successfully");        res.status(200).json({
             success: true,
             message: "Sale deleted successfully",
             data: sale,

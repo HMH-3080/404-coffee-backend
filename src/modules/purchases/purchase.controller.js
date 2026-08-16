@@ -1,4 +1,5 @@
 const purchaseService = require("./purchase.service");
+const { logAudit } = require("../../utils/audit");
 
 // Get all purchases
 const getPurchases = async (req, res, next) => {
@@ -35,7 +36,9 @@ const createPurchase = async (req, res, next) => {
         const purchase =
             await purchaseService.createPurchase(req.body);
 
-        res.status(201).json({
+
+                // Record in audit log
+                await logAudit(req, "purchases", "create_purchase", "Purchase created successfully");        res.status(201).json({
             success: true,
             message: "Purchase created successfully",
             data: purchase,
@@ -54,7 +57,9 @@ const updatePurchase = async (req, res, next) => {
                 req.body
             );
 
-        res.status(200).json({
+
+                // Record in audit log
+                await logAudit(req, "purchases", "edit_purchase", "Purchase updated successfully");        res.status(200).json({
             success: true,
             message: "Purchase updated successfully",
             data: purchase,
@@ -72,7 +77,9 @@ const approvePurchase = async (req, res, next) => {
                 req.params.id
             );
 
-        res.status(200).json({
+
+                // Record in audit log
+                await logAudit(req, "purchases", "approve_purchase", "Purchase approved successfully");        res.status(200).json({
             success: true,
             message: "Purchase approved successfully",
             data: purchase,
@@ -90,7 +97,9 @@ const cancelPurchase = async (req, res, next) => {
                 req.params.id
             );
 
-        res.status(200).json({
+
+                // Record in audit log
+                await logAudit(req, "purchases", "cancel_purchase", "Purchase cancelled successfully");        res.status(200).json({
             success: true,
             message: "Purchase cancelled successfully",
             data: purchase,
@@ -108,7 +117,9 @@ const deletePurchase = async (req, res, next) => {
                 req.params.id
             );
 
-        res.status(200).json({
+
+                // Record in audit log
+                await logAudit(req, "purchases", "delete_purchase", "Purchase deleted successfully");        res.status(200).json({
             success: true,
             message: "Purchase deleted successfully",
             data: purchase,

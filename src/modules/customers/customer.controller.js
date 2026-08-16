@@ -1,4 +1,5 @@
 const customerService = require("./customer.service");
+const { logAudit } = require("../../utils/audit");
 
 // ============================================================
 // Get all customers
@@ -48,7 +49,9 @@ const createCustomer = async (req, res, next) => {
         const customer =
             await customerService.createCustomer(req.body);
 
-        res.status(201).json({
+
+                // Record in audit log
+                await logAudit(req, "customers", "create_customer", "Customer created successfully");        res.status(201).json({
             success: true,
             message: "Customer created successfully",
             data: customer,
@@ -70,7 +73,9 @@ const updateCustomer = async (req, res, next) => {
                 req.body
             );
 
-        res.status(200).json({
+
+                // Record in audit log
+                await logAudit(req, "customers", "edit_customer", "Customer updated successfully");        res.status(200).json({
             success: true,
             message: "Customer updated successfully",
             data: customer,
@@ -91,7 +96,9 @@ const deleteCustomer = async (req, res, next) => {
                 req.params.id
             );
 
-        res.status(200).json({
+
+                // Record in audit log
+                await logAudit(req, "customers", "delete_customer", "Customer deleted successfully");        res.status(200).json({
             success: true,
             message: "Customer deleted successfully",
             data: customer,

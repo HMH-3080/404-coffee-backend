@@ -10,12 +10,11 @@ datasource db {
 }
 
 model User {
-  id            Int        @id @default(autoincrement())
-  name          String
-  passwordHash  String
-  position      String
-  status        UserStatus @default(ACTIVE)
-  fingerprintId String?    @unique
+  id           Int        @id @default(autoincrement())
+  name         String
+  passwordHash String
+  position     String
+  status       UserStatus @default(ACTIVE)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -29,8 +28,6 @@ model User {
 
   auditLogs       AuditLog[]
   updatedSettings Setting[]  @relation("UpdatedSettings")
-
-  attendance Attendance[]
 
   @@map("users")
 }
@@ -111,7 +108,6 @@ model Product {
   name        String  @unique
   description String?
   image       String?
-  barcode     String? @unique
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -608,44 +604,6 @@ model CashDrawerTransaction {
   @@index([shiftId])
   @@index([type])
   @@map("cash_drawer_transactions")
-}
-
-// ============================================================
-// Attendance / Employee Performance
-// ============================================================
-
-enum AttendanceStatus {
-  PRESENT
-  ABSENT
-  LEAVE
-  HOLIDAY
-}
-
-enum AttendanceMethod {
-  MANUAL
-  FINGERPRINT
-}
-
-model Attendance {
-  id       Int              @id @default(autoincrement())
-  userId   Int
-  date     DateTime         @db.Date
-  checkIn  DateTime?
-  checkOut DateTime?
-  status   AttendanceStatus @default(PRESENT)
-  method   AttendanceMethod @default(MANUAL)
-  notes    String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([userId, date])
-  @@index([userId])
-  @@index([date])
-  @@index([status])
-  @@map("attendance")
 }
 
 // ============================================================

@@ -27,6 +27,23 @@ const createAuditLog = async ({
     }
 };
 
+// ============================================================
+// Convenience wrapper that pulls userId + ip from the request
+// ============================================================
+
+const logAudit = (req, page, action, description) => {
+    const userId = req.user ? req.user.userId : null;
+
+    return createAuditLog({
+        userId,
+        page,
+        action,
+        description,
+        ipAddress: req.ip,
+    });
+};
+
 module.exports = {
     createAuditLog,
+    logAudit,
 };

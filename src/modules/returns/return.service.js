@@ -2,6 +2,17 @@ const prisma = require("../../lib/prisma");
 
 
 // ============================================================
+// Helpers
+// ============================================================
+
+const httpError = (message, statusCode = 400) => {
+    const error = new Error(message);
+    error.statusCode = statusCode;
+    return error;
+};
+
+
+// ============================================================
 // Generate return number
 // ============================================================
 
@@ -28,7 +39,7 @@ const createReturn = async (data) => {
     } = data;
 
     if (!items || items.length === 0) {
-        throw new Error("Return must contain at least one item");
+        throw httpError("Return must contain at least one item");
     }
 
     // --------------------------------------------------------
@@ -42,7 +53,7 @@ const createReturn = async (data) => {
     });
 
     if (!supplier) {
-        throw new Error("Supplier not found");
+        throw httpError("Supplier not found", 404);
     }
 
     const returnItems = [];
@@ -69,8 +80,9 @@ const createReturn = async (data) => {
         });
 
         if (!rawMaterial) {
-            throw new Error(
-                `Raw material with ID ${item.rawMaterialId} not found`
+            throw httpError(
+                `Raw material with ID ${item.rawMaterialId} not found`,
+                404
             );
         }
 
@@ -83,7 +95,7 @@ const createReturn = async (data) => {
         );
 
         if (quantity > currentStock) {
-            throw new Error(
+            throw httpError(
                 `Insufficient stock for raw material "${rawMaterial.name}". Available: ${currentStock}`
             );
         }
@@ -215,7 +227,7 @@ const getReturnById = async (id) => {
     });
 
     if (!result) {
-        throw new Error("Return not found");
+        throw httpError("Return not found", 404);
     }
 
     return result;
@@ -238,11 +250,11 @@ const updateReturn = async (id, data) => {
     });
 
     if (!existingReturn) {
-        throw new Error("Return not found");
+        throw httpError("Return not found", 404);
     }
 
     if (existingReturn.status !== "DRAFT") {
-        throw new Error(
+        throw httpError(
             "Only draft returns can be updated"
         );
     }
@@ -267,7 +279,7 @@ const updateReturn = async (id, data) => {
         });
 
         if (!supplier) {
-            throw new Error("Supplier not found");
+            throw httpError("Supplier not found", 404);
         }
     }
 
@@ -295,7 +307,7 @@ const updateReturn = async (id, data) => {
 
     if (items !== undefined) {
         if (!Array.isArray(items) || items.length === 0) {
-            throw new Error(
+            throw httpError(
                 "Return must contain at least one item"
             );
         }
@@ -322,8 +334,9 @@ const updateReturn = async (id, data) => {
                 });
 
             if (!rawMaterial) {
-                throw new Error(
-                    `Raw material with ID ${item.rawMaterialId} not found`
+                throw httpError(
+                    `Raw material with ID ${item.rawMaterialId} not found`,
+                    404
                 );
             }
 
@@ -337,7 +350,7 @@ const updateReturn = async (id, data) => {
                 );
 
             if (quantity > currentStock) {
-                throw new Error(
+                throw httpError(
                     `Insufficient stock for raw material "${rawMaterial.name}". Available: ${currentStock}`
                 );
             }
@@ -415,11 +428,11 @@ const approveReturn = async (id) => {
         });
 
         if (!returnRecord) {
-            throw new Error("Return not found");
+            throw httpError("Return not found", 404);
         }
 
         if (returnRecord.status !== "DRAFT") {
-            throw new Error(
+            throw httpError(
                 "Only draft returns can be approved"
             );
         }
@@ -454,7 +467,7 @@ const approveReturn = async (id) => {
             );
 
             if (remaining > currentStock) {
-                throw new Error(
+                throw httpError(
                     `Insufficient stock for raw material ID ${item.rawMaterialId}`
                 );
             }
@@ -528,11 +541,11 @@ const cancelReturn = async (id) => {
     });
 
     if (!existingReturn) {
-        throw new Error("Return not found");
+        throw httpError("Return not found", 404);
     }
 
     if (existingReturn.status !== "DRAFT") {
-        throw new Error(
+        throw httpError(
             "Only draft returns can be cancelled"
         );
     }
@@ -571,11 +584,11 @@ const deleteReturn = async (id) => {
     });
 
     if (!existingReturn) {
-        throw new Error("Return not found");
+        throw httpError("Return not found", 404);
     }
 
     if (existingReturn.status !== "DRAFT") {
-        throw new Error(
+        throw httpError(
             "Only draft returns can be deleted"
         );
     }

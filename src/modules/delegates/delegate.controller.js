@@ -1,4 +1,5 @@
 const delegateService = require("./delegate.service");
+const { logAudit } = require("../../utils/audit");
 
 // Get all delegates
 const getDelegates = async (req, res, next) => {
@@ -39,7 +40,9 @@ const createDelegate = async (req, res, next) => {
             req.body
         );
 
-        res.status(201).json({
+
+                // Record in audit log
+                await logAudit(req, "delegates", "create_delegate", "Delegate created successfully");        res.status(201).json({
             success: true,
             message: "Delegate created successfully",
             data: delegate,
@@ -58,7 +61,9 @@ const updateDelegate = async (req, res, next) => {
             req.body
         );
 
-        res.status(200).json({
+
+                // Record in audit log
+                await logAudit(req, "delegates", "edit_delegate", "Delegate updated successfully");        res.status(200).json({
             success: true,
             message: "Delegate updated successfully",
             data: delegate,
@@ -77,7 +82,9 @@ const updateDelegateStatus = async (req, res, next) => {
             req.body.status
         );
 
-        res.status(200).json({
+
+                // Record in audit log
+                await logAudit(req, "delegates", "change_delegate_status", "Delegate status updated successfully");        res.status(200).json({
             success: true,
             message: "Delegate status updated successfully",
             data: delegate,
@@ -95,7 +102,9 @@ const deleteDelegate = async (req, res, next) => {
             req.params.id
         );
 
-        res.status(200).json({
+
+                // Record in audit log
+                await logAudit(req, "delegates", "delete_delegate", "Delegate deleted successfully");        res.status(200).json({
             success: true,
             message: "Delegate deleted successfully",
             data: delegate,

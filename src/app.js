@@ -38,8 +38,6 @@ const financialReportRoutes = require("./modules/financial-reports/financial-rep
 
 const dashboardRoutes = require("./modules/dashboard/dashboard.routes");
 
-const attendanceRoutes = require("./modules/attendance/attendance.routes");
-
 const chatRoutes = require("./modules/chat/chat.routes");
 
 
@@ -101,8 +99,6 @@ app.use("/api/warnings", warningRoutes);
 app.use("/api/financial-reports", financialReportRoutes);
 
 app.use("/api/dashboard", dashboardRoutes);
-
-app.use("/api/attendance", attendanceRoutes);
 
 app.use("/api/chat", chatRoutes);
 

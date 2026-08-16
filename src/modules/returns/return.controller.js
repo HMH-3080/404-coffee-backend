@@ -1,27 +1,25 @@
 const returnService = require("./return.service");
+const { logAudit } = require("../../utils/audit");
 
 
 // ============================================================
 // Create
 // ============================================================
 
-const createReturn = async (req, res) => {
+const createReturn = async (req, res, next) => {
     try {
         const result =
             await returnService.createReturn(req.body);
 
+
+        await logAudit(req, "returns", "create_return", "Return created successfully");
         return res.status(201).json({
             success: true,
             message: "Return created successfully",
             data: result,
         });
     } catch (error) {
-        console.error("Create return error:", error);
-
-        return res.status(400).json({
-            success: false,
-            message: error.message,
-        });
+        next(error);
     }
 };
 
@@ -30,7 +28,7 @@ const createReturn = async (req, res) => {
 // Get all
 // ============================================================
 
-const getReturns = async (req, res) => {
+const getReturns = async (req, res, next) => {
     try {
         const result =
             await returnService.getReturns(req.query);
@@ -40,12 +38,7 @@ const getReturns = async (req, res) => {
             data: result,
         });
     } catch (error) {
-        console.error("Get returns error:", error);
-
-        return res.status(400).json({
-            success: false,
-            message: error.message,
-        });
+        next(error);
     }
 };
 
@@ -54,7 +47,7 @@ const getReturns = async (req, res) => {
 // Get by ID
 // ============================================================
 
-const getReturnById = async (req, res) => {
+const getReturnById = async (req, res, next) => {
     try {
         const result =
             await returnService.getReturnById(
@@ -66,17 +59,7 @@ const getReturnById = async (req, res) => {
             data: result,
         });
     } catch (error) {
-        console.error("Get return error:", error);
-
-        const statusCode =
-            error.message === "Return not found"
-                ? 404
-                : 400;
-
-        return res.status(statusCode).json({
-            success: false,
-            message: error.message,
-        });
+        next(error);
     }
 };
 
@@ -85,7 +68,7 @@ const getReturnById = async (req, res) => {
 // Update
 // ============================================================
 
-const updateReturn = async (req, res) => {
+const updateReturn = async (req, res, next) => {
     try {
         const result =
             await returnService.updateReturn(
@@ -93,23 +76,15 @@ const updateReturn = async (req, res) => {
                 req.body
             );
 
+
+        await logAudit(req, "returns", "edit_return", "Return updated successfully");
         return res.status(200).json({
             success: true,
             message: "Return updated successfully",
             data: result,
         });
     } catch (error) {
-        console.error("Update return error:", error);
-
-        const statusCode =
-            error.message === "Return not found"
-                ? 404
-                : 400;
-
-        return res.status(statusCode).json({
-            success: false,
-            message: error.message,
-        });
+        next(error);
     }
 };
 
@@ -118,30 +93,22 @@ const updateReturn = async (req, res) => {
 // Approve
 // ============================================================
 
-const approveReturn = async (req, res) => {
+const approveReturn = async (req, res, next) => {
     try {
         const result =
             await returnService.approveReturn(
                 req.params.id
             );
 
+
+        await logAudit(req, "returns", "approve_return", "Return approved successfully");
         return res.status(200).json({
             success: true,
             message: "Return approved successfully",
             data: result,
         });
     } catch (error) {
-        console.error("Approve return error:", error);
-
-        const statusCode =
-            error.message === "Return not found"
-                ? 404
-                : 400;
-
-        return res.status(statusCode).json({
-            success: false,
-            message: error.message,
-        });
+        next(error);
     }
 };
 
@@ -150,30 +117,22 @@ const approveReturn = async (req, res) => {
 // Cancel
 // ============================================================
 
-const cancelReturn = async (req, res) => {
+const cancelReturn = async (req, res, next) => {
     try {
         const result =
             await returnService.cancelReturn(
                 req.params.id
             );
 
+
+        await logAudit(req, "returns", "cancel_return", "Return cancelled successfully");
         return res.status(200).json({
             success: true,
             message: "Return cancelled successfully",
             data: result,
         });
     } catch (error) {
-        console.error("Cancel return error:", error);
-
-        const statusCode =
-            error.message === "Return not found"
-                ? 404
-                : 400;
-
-        return res.status(statusCode).json({
-            success: false,
-            message: error.message,
-        });
+        next(error);
     }
 };
 
@@ -182,30 +141,22 @@ const cancelReturn = async (req, res) => {
 // Delete
 // ============================================================
 
-const deleteReturn = async (req, res) => {
+const deleteReturn = async (req, res, next) => {
     try {
         const result =
             await returnService.deleteReturn(
                 req.params.id
             );
 
+
+        await logAudit(req, "returns", "delete_return", "Return deleted successfully");
         return res.status(200).json({
             success: true,
             message: "Return deleted successfully",
             data: result,
         });
     } catch (error) {
-        console.error("Delete return error:", error);
-
-        const statusCode =
-            error.message === "Return not found"
-                ? 404
-                : 400;
-
-        return res.status(statusCode).json({
-            success: false,
-            message: error.message,
-        });
+        next(error);
     }
 };
 

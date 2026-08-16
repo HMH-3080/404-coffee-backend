@@ -36,7 +36,7 @@ Response:
 |---|---|---|---|
 | GET | `/api/users` | `view_users` | قائمة المستخدمين مع صلاحياتهم |
 | POST | `/api/users` | `create_user` | إنشاء مستخدم |
-| PUT | `/api/users/:id` | `edit_user` | تعديل مستخدم — يدعم `fingerprintId` لربط بصمة الموظف (`""` يمسحها) |
+| PUT | `/api/users/:id` | `edit_user` | تعديل مستخدم |
 | PATCH | `/api/users/:id/status` | `change_user_status` | تفعيل/تعطيل |
 | DELETE | `/api/users/:id` | `delete_user` | حذف |
 | GET | `/api/users/:id/permissions` | `manage_permissions` | جلب صلاحيات مستخدم |
@@ -122,7 +122,6 @@ Response:
 | Method | Endpoint | ملاحظات |
 |---|---|---|
 | GET | `/api/products` | صفحة `products` |
-| GET | `/api/products/by-barcode/:code` | صفحة `products` — مسح باركود في الـ POS وجلب المنتج فورًا |
 | GET | `/api/products/:id` | صفحة `products` |
 | POST | `/api/products` | صفحة `products` |
 | GET | `/api/products/:productId/sizes` | صفحة `products` |
@@ -140,8 +139,6 @@ Response:
 | DELETE | `/api/products/:productId/addons/:addonId` | صفحة `products` |
 | PUT | `/api/products/:id` | صفحة `products` |
 | DELETE | `/api/products/:id` | صفحة `products` |
-
-**حقل الباركود**: `POST /api/products` و `PUT /api/products/:id` يقبلان `barcode` (اختياري، فريد — تكراره يعطي 409، وإرسال `""` يمسحه).
 
 ---
 
@@ -257,24 +254,7 @@ Response:
 
 يرجع ملخص: مبيعات اليوم/الإجمالي، طلبات اليوم/الإجمالي، الطلبات المعلقة، الوردية المفتوحة (رصيد/داخل/خارج)، إحصائيات (منتجات/عملاء/موردين/مناديب)، تنبيهات المخزون (low stock + قرب الانتهاء).
 
----
-
-## Attendance / Employee Performance — `/api/attendance`
-
-الصفحة: `attendance`
-
-| Method | Endpoint | Action |
-|---|---|---|
-| GET | `/api/attendance` | `view_attendance` — فلاتر: `userId`, `status`, `from`, `to` |
-| GET | `/api/attendance/summary` | `view_attendance` — فلاتر: `userId`, `from`, `to` |
-| POST | `/api/attendance/check-in` | `check_in` — body: `notes?` |
-| POST | `/api/attendance/check-out` | `check_out` |
-| POST | `/api/attendance/fingerprint` | **عام (بدون JWT)** — body: `{ "fingerprintId": "..." }` — البصمة نفسها هي الهوية؛ أول مسح = check-in والثاني = check-out |
-
-- الحضور: سجل واحد لكل موظف في اليوم (`@@unique([userId, date])`)، check-in/check-out يمنع التكرار (409).
-- كل سجل يحمل `method` (`MANUAL` أو `FINGERPRINT`).
-- **ربط البصمة**: `PUT /api/users/:id` بـ `{ "fingerprintId": "..." }` (فريد — تكراره 409، و`""` يمسحه)؛ يُظهره `GET /api/users`.
-- ملخص الأداء: عدد أيام الحضور، إجمالي/متوسط ساعات العمل، عدد/نسبة التأخير (بداية الوردية من إعداد `shift_start` — الافتراضي `10:00`).
+> **تسجيل حضور الموظفين**: دخول الموظف بحسابه (`POST /api/auth/login`) هو الأساس — يُسجَّل تلقائيًا في `سجل الأحداث` (Audit Log) بعملية `login`. لا يوجد نظام حضور بأجهزة/QR/بصمة.
 
 ---
 
@@ -328,8 +308,7 @@ Body:
 | Warnings | `/api/warnings` | 1 | ✓ |
 | Financial Reports | `/api/financial-reports` | 3 | ✓ |
 | Dashboard | `/api/dashboard` | 1 | ✓ |
-| Attendance | `/api/attendance` | 5 | ✓ (بما فيها تسجيل البصمة العام) |
 | AI Chat | `/api/chat` | 1 | ✓ (يحتاج `OPENAI_API_KEY`) |
 | Health | `/api/health` | 1 | ✓ |
 
-> **97 endpoint** إجماليًا، كلها موثقة أعلاه. `src/modules/auth/` هي موضع موديول تسجيل الدخول (نُقل من البنية القديمة `src/routes|controllers|services`).
+> **92 endpoint** إجماليًا، كلها موثقة أعلاه. `src/modules/auth/` هي موضع موديول تسجيل الدخول (نُقل من البنية القديمة `src/routes|controllers|services`).
